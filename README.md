@@ -1,6 +1,6 @@
 
 # Peer to Peer Entropy Generator
-@version 0.0.1-alpha
+@version 0.0.1-a
 
 ## About
 
@@ -17,6 +17,9 @@ For connecting pears there is no way to know about `P2PEG`'s internal state or a
     
     // optional - keep this file inaccessible to other users on system by `chmod 0600 p2peg.dat`
     $P2PEG->state_file = "/path/to/data/p2peg.dat";
+    
+    // A secret key chosen at setup
+    $P2PEG->setSecret("some uniq secret that no one knows");
 
     // Generate a string of random bits
     $random_seed = $P2PEG->generate(true);
