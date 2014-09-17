@@ -4,7 +4,7 @@
 
 ## About
 
-This class uses a combination of system data, client supplied data, some PRNGs available to PHP and timing to generate unpredictable hight entropy data.
+This class uses a combination of system data, client supplied data, server performance, some PRNGs available to PHP and timing to generate unpredictable hight entropy data.
 
 Each pear adds to the entropy, by suppling variable data with the request (in purpos or not) and by the fact of connecting to the server (the exact request time is also accounted), thus changing internal state of the `P2PEG`.
 
