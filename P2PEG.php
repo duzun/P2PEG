@@ -81,6 +81,10 @@ class P2PEG {
     }
 
     // -------------------------------------------------
+    public function setSecret($secret) {
+        $this->_secret = $secret;
+    }
+    // -------------------------------------------------
     /*
      * Each connecting client brings in some entropy.
      * Server entropy state is influenced by each client.
