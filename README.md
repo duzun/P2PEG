@@ -4,23 +4,29 @@
 
 ## About
 
-This class uses a combination of system data, client supplied data, some PRNGs available to PHP and timing to generate unpredictable entropy data.
+This class uses a combination of system data, client supplied data, some PRNGs available to PHP and timing to generate unpredictable hight entropy data.
 
-Each pear adds to the entropy, by suppling variable data with the request (in purpos or not) and by the fact of connecting to the server (the exact request time is also accounted).
+Each pear adds to the entropy, by suppling variable data with the request (in purpos or not) and by the fact of connecting to the server (the exact request time is also accounted), thus changing internal state of the `P2PEG`.
 
-For connecting pears there is no way to know about internal server state.
-
-For anyone trying to compute the state of the entropy data at a given point in time, or trying to guess
+For connecting pears there is no way to know about `P2PEG`'s internal state or about other connecting pears, hence generated data is truly random.
 
 
 ## Usage
 
     $P2PEG = include "/path/to/lib/P2PEG.php";
-    $P2PEG->state_file = "/path/to/data/p2peg.dat"; // optional
+    
+    // optional - keep this file inaccessible to other users on system by `chmod 0600 p2peg.dat`
+    $P2PEG->state_file = "/path/to/data/p2peg.dat";
 
+    // Generate a string of random bits
     $random_seed = $P2PEG->generate(true);
     
-    // ... use $random_seed as cryptographic salt, seed for PRNG or anything else that requires unpredictable entropy data.
+    // ... use $random_seed as cryptographic salt, seed for PRNG, password generators or anything else that requires unpredictable hight entropy data.
+    
+    // Generateanothher random string
+    $random_seed2 = $P2PEG->generate(true);
+    
+    // ... and so on
 
 ## TODO
 
