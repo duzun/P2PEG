@@ -15,6 +15,6 @@ For anyone trying to compute the state of the entropy data at a given point in t
 To improve the entropy unpredictability, I intend to create system where multiple machines periodically exchange entropy. 
 Each pear gets entropy and gives entropy at the same time with a simple GET request like this one:
 
-    `curl https://DUzun.Me/entropy/<hash(random_func().$secret)>`
+    curl https://DUzun.Me/entropy/<hash(random_func().$secret)>
 
 
