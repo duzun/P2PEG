@@ -8,7 +8,7 @@
 This class uses a combination of sources of entropy to generate random data as unpredictable as posible. 
 The key concept is sharing of random data between peers, where each peer benefits from each request.
 
-Internally each peer generates random data using some system data, server performance/load, some PRNGs available to PHP, timing and client supplied data. This way the generated data apears unpredictable to the connecting peer and at the same time is also influenced by the connecting peer.
+Internally each peer generates random data using some system data, server performance/load, some PRNGs (Pseudo random Number Generators) available to PHP, timing and client supplied data. This way the generated data apears unpredictable to the connecting peer and at the same time is also influenced by the connecting peer.
 
 If the peer doesn't trust the other peer to be "honest", it can contact multiple peers to gather the random bits. And the collected data is always combinet with the peer's secred and some internat random data.
 
