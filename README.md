@@ -1,14 +1,20 @@
 
 # Peer to Peer Entropy Generator
+## or Random data generator with p2p seeding
 @version 0.0.1-a
 
 ## About
 
-This class uses a combination of system data, client supplied data, server performance/load, some PRNGs available to PHP and timing to generate unpredictable hight entropy data.
+This class uses a combination of sources of entropy to generate random data as unpredictable as posible. 
+The key concept is sharing of random data between peers, where each peer benefits from each request.
 
-Each pear adds to the entropy, by suppling variable data with the request (in purpos or not) and by the fact of connecting to the server (the exact request time is also accounted), thus changing internal state of the `P2PEG`.
+Internally each peer generates random data using some system data, server performance/load, some PRNGs available to PHP, timing and client supplied data. This way the generated data apears unpredictable to the connecting peer and at the same time is also influenced by the connecting peer.
 
-For connecting pears there is no way to know about `P2PEG`'s internal state or about other connecting pears, hence generated data is truly random.
+If the peer doesn't trust the other peer to be "honest", it can contact multiple peers to gather the random bits. And the collected data is always combinet with the peer's secred and some internat random data.
+
+Each peer adds to the entropy of the other peer by suppling variable data with the request (in purpos or not) and by the fact of connecting to the server (the exact request time is also accounted), thus changing internal state of the `P2PEG`.
+
+For connecting peers there is no way to know about `P2PEG`'s internal state or about other connecting peers, hence generated data is truly random.
 
 
 ## Usage
@@ -23,6 +29,9 @@ For connecting pears there is no way to know about `P2PEG`'s internal state or a
 
     // Generate a string of random bits
     $random_seed = $P2PEG->generate(true);
+    
+    // Seed the PHP's RNG
+    mt_srand(crc32($random_seed));
     
     // ... use $random_seed as cryptographic salt, seed for PRNG, password generators or anything else that requires unpredictable hight entropy data.
     
