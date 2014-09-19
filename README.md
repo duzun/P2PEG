@@ -17,10 +17,35 @@ Each peer adds to the entropy of the other peer by suppling variable data with t
 For connecting peers there is no way to know about `P2PEG`'s internal state or about other connecting peers, hence generated data is truly random.
 
 
-## Usage
+## Basic Usage
 
-    $P2PEG = include "/path/to/lib/P2PEG.php";
+    // Include the class
+    require_once "/path/to/lib/P2PEG.php";
     
+    // Get the singleton instance or just create a new instance of P2PEG
+    $P2PEG = P2PEG::instance();
+    
+    // Get some random binary string
+    $str = $P2PEG->str($length);
+
+Now you can use `$str` as cryptographic salt, seed for PRNG, password generators or anything else that requires unpredictable hight entropy data.
+    
+    // Get some random integer numbers
+    $int1 = $P2PEG->int();
+    $int2 = $P2PEG->int16();
+    $int3 = $P2PEG->int32();
+    
+    // Get some random text (base64 encoded)
+    $text = $P2PEG->text($length);
+    
+    // Get some random string hex encoded
+    $hex = $P2PEG->hex($length);
+
+
+## Advanced Usage
+
+Before using the instance of `P2PEG` class, it is a good idea to set some properties:
+
     // optional - keep this file inaccessible to other users on system by `chmod 0600 p2peg.dat`
     $P2PEG->state_file = "/path/to/data/p2peg.dat";
     
@@ -28,16 +53,12 @@ For connecting peers there is no way to know about `P2PEG`'s internal state or a
     $P2PEG->setSecret("some uniq secret that no one knows");
 
     // Generate a string of random bits
-    $random_seed = $P2PEG->generate(true);
+    $P2PEG->seed("some (random) string");
     
     // Seed the PHP's RNG
-    mt_srand(crc32($random_seed));
+    mt_srand(crc32($P2PEG->seed()));
     
-    // ... use $random_seed as cryptographic salt, seed for PRNG, password generators or anything else that requires unpredictable hight entropy data.
-    
-    // Generateanothher random string
-    $random_seed2 = $P2PEG->generate(true);
-    
+
     // ... and so on
 
 ## TODO
