@@ -23,22 +23,29 @@
  *      curl https://DUzun.Me/entropy/<hash(random_func().$secret)>
  *
  *
- *  @version 0.0.1-alpha
+ *  @version 0.1.0-alpha
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    static $start_ts;
-    static protected $instance; // singleton
+    static $version = '0.1.0';
 
+    // First start timestamp
+    static $start_ts;
+
+    // Singleton instance
+    static protected $instance;
+
+    /// A secred string, should be unique on each instalation
     private $_secret = ',!8L_J:UWWl\'ACt:7c05!R8}~>yb!gPP=|(@FBny\'ao/&-\jVs';
 
+    /// Path to a file where to store state data
     public $state_file;
 
     public $debug = false;
 
-    // Use first available hash alg from the list
+    /// Use first available hash alg from the list
     public $hash = array('sha512', 'sha256', 'sha128', 'sha1', 'md5');
 
 
@@ -46,19 +53,24 @@ class P2PEG {
     private $_state;
     protected $_clientEntropy;
     protected $_serverEntropy;
-    protected $_stateEntropy;
+    protected $_filesystemEntropy;
+
+    // internal buffer
+    private $_b = '';
 
     // -------------------------------------------------
-    static function instance() {
+    /// Get the singleton instance
+    static function instance($secret=NULL) {
         if(!isset(self::$instance)) {
-            self::$instance = new self();
+            self::$instance = new self($secret);
         }
         return self::$instance;
     }
     // -------------------------------------------------
-    public function __construct() {
+    public function __construct($secret=NULL) {
         // parent::__construct();
         isset(self::$start_ts) or self::$start_ts = microtime(true);
+        $this->setSecret(isset($secret) ? $secret : $this->_secret);
     }
 
     public function __destruct() {
@@ -69,28 +81,157 @@ class P2PEG {
         }
     }
     // -------------------------------------------------
+    public function warmup($secret=NULL) {
+        isset($secret) and $this->setSecret($secret);
+        $this->state();
+        $this->serverEntropy();
+        $this->clientEntropy();
+    }
+
+    // -------------------------------------------------
     public function generate($raw=true) {
-        $ret =  $this->state()
-                . $this->serverEntropy()
-                . $this->clientEntropy()
-                . $this->dynEntropy()
-        ;
-        $ret = $this->hash($ret);
-        $this->_state ^= $ret;
+        $ret = $this->seed();
         return $raw ? $ret : bin2hex($ret);
     }
 
     // -------------------------------------------------
+    /**
+     *  Seed P2PEG with some entropy.
+     */
+    public function seed($seed=NULL) {
+        $ret = $this->state()
+               . $seed
+               . $this->dynEntropy()
+        ;
+        $ret = $this->hash($ret);
+        $this->_state ^= $ret;
+        $this->_b = $ret;
+        return $ret;
+    }
+
+    // -------------------------------------------------
+    /**
+     *  Return a random binary string of specified length.
+     */
+    public function str($len=NULL) {
+        $l = strlen($ret = $this->_b) or
+        $l = strlen($ret = $this->seed($len));
+        isset($len) or $len = $l;
+        while($l < $len) {
+            $ret .= $this->seed($l);
+            $l = strlen($ret);
+        }
+        if($len < $l) {
+            $this->_b = substr($ret, $len);
+            $ret = substr($ret, 0, $len);
+        }
+        else {
+            $this->_b = '';
+        }
+        return $ret;
+    }
+
+
+    /**
+     *  Hex encoded string
+     */
+    public function hex($len=NULL) {
+        $l = isset($len) ? $len / 2 : $len;
+        $ret = $this->str($l);
+        return bin2hex($ret);
+    }
+
+
+    /**
+     *  Base64 encoded text for URL
+     */
+    public function text($len=NULL) {
+        $l = isset($len) ? ceil((float)$len * 3.0 / 4.0) : NULL;
+        $ret = $this->bin2text($this->str($l));
+        if(isset($len) && strlen($ret) > $len) $ret = substr($ret, 0, $len);
+        return $ret;
+    }
+
+
+    /**
+     *  Return a random 16 bit integer.
+     */
+    public function int16() {
+        $r = unpack('s', $this->str(2));
+        return reset($r);
+    }
+
+    /**
+     *  Return a random 32 bit integer.
+     */
+    public function int32() {
+        $r = unpack('l', $this->str(4));
+        return reset($r);
+    }
+
+    /**
+     *  Return a random integer.
+     */
+    public function int() {
+        $s = PHP_INT_SIZE;
+        $src = $this->str($s);
+        for($r = 0; $s--; ) {
+            $r = ($r << 8) | ord(substr($src, $s, 1));
+        }
+        return $r;
+    }
+
+
+    // -------------------------------------------------
     public function setSecret($secret) {
-        $this->_secret = $secret;
+        // For performance bust, digest the secret
+        $this->_secret = hash('sha1', $secret, true);
     }
     // -------------------------------------------------
+    /**
+     *   Quickly get some dynamic entropy.
+     */
+    public function dynEntropy($quick=true) {
+        $_entr = array();
+
+        $_entr[$this->packInt(substr(microtime(), 2, 6))] = 'microtime';
+        $_entr[$this->packInt(rand())] = 'rand';
+
+        // Get some data from mt_rand()
+        $r = array();
+        $l = rand(1,8);
+        for ($i = 0; $i < $l; ++$i) $r[] = pack('S', mt_rand(0, 0xFFFF));
+        $r = implode('', $r);
+        $_entr[$r] = 'mt_rand';
+
+        // System performance/load indicator
+        $r = (microtime(true)-self::$start_ts)*1000;
+        $_entr[$this->packFloat($r)] = 'delta';
+
+        if($this->debug) {
+            echo PHP_EOL; var_export(array(__FUNCTION__ => $_entr)); echo PHP_EOL;
+        }
+
+        $_entr = implode('', array_keys($_entr));
+        return $_entr;
+    }
+
+    // -------------------------------------------------
     /*
-     * Each connecting client brings in some entropy.
-     * Server entropy state is influenced by each client.
+     * Each connecting client brings in some entropy and influences internal state.
+     *
      */
     public function clientEntropy() {
         if(!isset($this->_clientEntropy)) {
+
+            if(strncmp(php_sapi_name(), 'cgi', 3) == 0) {
+                global $argv;
+                $_entr = implode('', $argv);
+                $_entr = $_entr ? $this->hash($_entr,true) : '';
+                $this->_clientEntropy = $_entr;
+                return $_entr;
+            }
+
             $_entr = array();
             foreach(array(
                 'REQUEST_URI',
@@ -103,8 +244,12 @@ class P2PEG {
                 $r = $this->env($t) and
                 $_entr[$r] = $t;
             }
+            if(empty($_COOKIE[session_name()]) and $r = session_id()) $_entr[$r] = 'sesid'; // If session just initialized, there is no session id in cookie
+
             // HTTP_COOKIE and REQUEST_URI might contain private data - hash/hide it at this point
+            $_entr = implode('', array_keys($_entr));
             $_entr = array($this->hash($_entr,true)=>'HTTP');
+
             foreach(array(
                 'REMOTE_ADDR',
                 'HTTP_CLIENT_IP', // client might be behind proxy
@@ -135,6 +280,7 @@ class P2PEG {
         return $this->_clientEntropy;
     }
 
+    // -------------------------------------------------
     /*
      * Entropy private to server
      */
@@ -147,6 +293,7 @@ class P2PEG {
             $_entr[php_uname('v')] = 'v';
             $_entr[phpversion()] = 'php';
             $_entr[php_sapi_name()] = 'sapi';
+            $_entr[$this->packIP4(self::$version)] = 'ver';
 
             $t = getmypid()   and $_entr[$this->packInt($t)] = 'pid';
             $t = getmyuid()   and $_entr[$this->packInt($t)] = 'uid';
@@ -183,30 +330,37 @@ class P2PEG {
         return $this->_serverEntropy;
     }
 
-    public function dynEntropy($quick=true) {
-        $_entr = array();
-
-        $_entr[$this->packInt(substr(microtime(), 2, 6))] = 'microtime';
-        $_entr[$this->packInt(rand())] = 'rand';
-
-        // Get some data from mt_rand()
-        $r = array();
-        $l = rand(2,8);
-        for ($i = 0; $i < $l; ++$i) $r[] = pack('S', mt_rand(0, 0xffff));
-        $r = implode('', $r);
-        $_entr[$r] = 'mt_rand';
-
-        // System performance/load indicator
-        $r = (microtime(true)-self::$start_ts)*1000;
-        $_entr[$this->packFloat($r)] = 'delta';
-
-        if($this->debug) {
-            echo PHP_EOL; var_export(array(__FUNCTION__ => $_entr)); echo PHP_EOL;
+    // -------------------------------------------------
+    public function filesystemEntropy($dirs=NULL, $maxRead=0) {
+        if(!isset($dirs)) {
+            if(isset($this->_filesystemEntropy)) return $this->_filesystemEntropy;
+            $_save_result = true;
+            $dirs = array(session_save_path(), sys_get_temp_dir(), $this->env('DOCUMENT_ROOT'));
         }
+        if(!$maxRead) {
+            $maxRead = rand(100,500);
+        }
+        if(!$dirs) return false;
 
-        $_entr = implode('', array_keys($_entr));
-        return $_entr;
+        if(!is_array($dirs)) $dirs = array($dirs);
+
+        // Unique
+        $dirs = array_flip($dirs);
+
+        $buf = '';
+        foreach($dirs as $dir => $v) if($d = @opendir($dir)) {
+            $h = $this->strxor((($v+1)*$maxRead) . $d . $this->packInt(filemtime($dir)), $dir);
+            $i = $maxRead;
+            while($i-- > 0 and $f = readdir($d)) if($f != '.' && $f != '..') {
+                $h = $this->strxor($h, $f);
+            }
+            $buf .= $h;
+            closedir($d);
+        }
+        $this->_filesystemEntropy = $buf;
+        return $buf;
     }
+
     // -------------------------------------------------
 
     public function state() {
@@ -224,20 +378,26 @@ class P2PEG {
                     is_dir($dir = dirname($state_file)) or mkdir($dir, 0600, true);
                 }
             }
-            $entr = $this->hash($this->dynEntropy());
-            // No state - init it with random data
+
+            // Seed the state
+            $seed = $this->hash($this->clientEntropy() . $this->dynEntropy() . $this->serverEntropy());
+
+            // No state - init it with some initial entropy
             if(!$this->_state) {
-                $this->_state = $entr;
+                $this->_state = $this->hash(
+                    $this->filesystemEntropy() // could be a bit expensive, but it is run only the first time
+                );
             }
             // Update state before next save
             else {
                 // Align state value with our hash function
-                if(strlen($this->_state) < strlen($entr)) {
-                    $this->_state = $this->hash(entr.$this->_state);
+                if(strlen($this->_state) < strlen($seed)) {
+                    $this->_state = $this->hash($seed.$this->_state);
                 }
-                // Change state
-                $this->_state ^= $entr;
             }
+
+            // New state depends on previous state and the entropy of current request
+            $this->_state ^= $seed;
         }
         return $this->_state;
     }
@@ -245,7 +405,7 @@ class P2PEG {
     // -------------------------------------------------
 
     public function hash($str, $raw=true) {
-        $str = $str . $this->_secret;
+        $str .= $this->_secret;
         if(is_array($this->hash)) {
             foreach($this->hash as $h) {
                 $ret = hash($h, $str, $raw);
@@ -261,12 +421,15 @@ class P2PEG {
     }
 
     // -------------------------------------------------
-    public function packIP4($ip, $hex=NULL) {
+
+    // Helper methods:
+
+    public function packIP4($ip) {
+        $r = '';
         $ip = explode('.', $ip);
-        if(count($ip) < 4) return $ip; // invalid IP
-        $r = 0;
-        for($i=0; $i<4; $i++) $r = ($r << 8) | (int)$ip[$i];
-        return pack('L', $r);
+        foreach($ip as $i) $r .= chr($i & 0xFF);
+        if($this->debug) $r = bin2hex($r);
+        return $r;
     }
 
     public function packInt($int) {
@@ -285,6 +448,32 @@ class P2PEG {
         return count($t) == 2 ? $this->packInt($t[1]).$this->packInt($t[0]).$this->packInt(strlen($t[1])) : $this->packInt($float);
     }
 
+    // -------------------------------------------------
+    public function bin2text($bin) {
+        $text = strtr(rtrim(base64_encode($bin), '='), '+/', '-_');
+        return $text;
+    }
+
+    public function text2bin($text, $strict=false) {
+        $bin = base64_decode(strtr($text, '-_', '+/'), $strict);
+        return $bin;
+    }
+
+    // -------------------------------------------------
+    public function strxor($a,$b) {
+        $m = strlen($a);
+        $n = strlen($b);
+        if($m != $n) {
+            if(!$m || !$n) return $a . $b;
+            if($n < $m) {
+                $b = str_repeat($b, floor($m / $n)) . substr($b, 0, $m % $n);
+            }
+            else {
+                $a = str_repeat($a, floor($n / $m)) . substr($a, 0, $n % $m);
+            }
+        }
+        return $a ^ $b;
+    }
     // -------------------------------------------------
     public function env($n) {
         $r = getenv($n);
@@ -374,11 +563,6 @@ if(!function_exists('sys_get_temp_dir')) {
         return $dir;
     }
 }
-
-
-
-return P2PEG::instance();
-
 
 
 
