@@ -46,20 +46,21 @@ Now you can use `$str` as cryptographic salt, seed for PRNG, password generators
 
 Before using the instance of `P2PEG` class, it is a good idea to set some properties:
 
-    // optional - keep this file inaccessible to other users on system by `chmod 0600 p2peg.dat`
+    // optional - Internal state file: keep it inaccessible to other users on system by `chmod 0600 p2peg.dat`
     $P2PEG->state_file = "/path/to/data/p2peg.dat";
     
     // A secret key chosen at setup
     $P2PEG->setSecret("some uniq secret that no one knows");
 
-    // Generate a string of random bits
+    // Seed the P2PEG with some bits of data or your choise
     $P2PEG->seed("some (random) string");
     
     // Seed the PHP's RNG
     mt_srand(crc32($P2PEG->seed()));
     
 
-    // ... and so on
+    // ... more comming soon
+    
 
 ## TODO
 
