@@ -62,6 +62,11 @@ Before using the instance of `P2PEG` class, it is a good idea to set some proper
     // ... more comming soon
     
 
+## Sample output
+
+https://duzun.me/entropy
+
+
 ## TODO
 
 To improve the entropy unpredictability, I intend to create system where multiple machines periodically exchange entropy. 
