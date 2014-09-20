@@ -1,6 +1,7 @@
 <?php
 /*!
  *  Peer to Peer Entropy Generator
+ *  * or Random numbers generator with p2p seeding
  *
  *  This class uses a combination of system data, client supplied data,
  *  some PRNGs available to PHP and timing to generate unpredictable
@@ -23,13 +24,13 @@
  *      curl https://DUzun.Me/entropy/<hash(random_func().$secret)>
  *
  *
- *  @version 0.1.0-alpha
+ *  @version 0.1.1
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    static $version = '0.1.0';
+    static $version = '0.1.1';
 
     // First start timestamp
     static $start_ts;
@@ -57,6 +58,10 @@ class P2PEG {
 
     // internal buffer
     private $_b = '';
+
+    // Seed for rand32() method
+    public $rs_z = 0;
+    public $rs_w = 0;
 
     // -------------------------------------------------
     /// Get the singleton instance
@@ -86,12 +91,6 @@ class P2PEG {
         $this->state();
         $this->serverEntropy();
         $this->clientEntropy();
-    }
-
-    // -------------------------------------------------
-    public function generate($raw=true) {
-        $ret = $this->seed();
-        return $raw ? $ret : bin2hex($ret);
     }
 
     // -------------------------------------------------
@@ -155,6 +154,8 @@ class P2PEG {
 
     /**
      *  Return a random 16 bit integer.
+     *
+     *  @return (int)random
      */
     public function int16() {
         $r = unpack('s', $this->str(2));
@@ -163,6 +164,8 @@ class P2PEG {
 
     /**
      *  Return a random 32 bit integer.
+     *
+     *  @return (int)random
      */
     public function int32() {
         $r = unpack('l', $this->str(4));
@@ -171,16 +174,106 @@ class P2PEG {
 
     /**
      *  Return a random integer.
+     *
+     *  @param (int)$size - number of bytes used to generate the integer [1..PHP_INT_SIZE].
+     *                      Defaults to PHP_INT_SIZE (4 or 8, depending on system)
+     *      Ex. If $size == 1, the result is a number from interval [0..255].
+     *          If $size == 3, the result is a number from interval [0..16777215].
+     *
+     *  @return (int)random
+     *
      */
-    public function int() {
-        $s = PHP_INT_SIZE;
+    public function int($size=NULL) {
+        $s = isset($size) ? $size : PHP_INT_SIZE;
         $src = $this->str($s);
-        for($r = 0; $s--; ) {
-            $r = ($r << 8) | ord(substr($src, $s, 1));
-        }
+        $r = 0;
+        for(;$s--;) $r = ($r << 8) | ord(substr($src, $s, 1));
         return $r;
     }
 
+    // -------------------------------------------------
+    /**
+     *  Pseudo-random 32bit integer numbers generator.
+     *
+     *  This function produces same result as $this->int32(),
+     *  but is much faster at generating long strings of random numbers.
+     *
+     *  @source http://en.wikipedia.org/wiki/Random_number_generation
+     */
+    public function rand32() {
+        $rs_w = $this->rs_w;
+        $rs_z = $this->rs_z;
+
+        // Seed if necessary
+        while(!$rs_w || $rs_w == 0x464fffff) $rs_w = $this->int32() ^ $this->int32();  /* must not be zero, nor 0x464fffff */
+        while(!$rs_z || $rs_z == 0x9068ffff) $rs_z = $this->int32() ^ $this->int32();  /* must not be zero, nor 0x9068ffff */
+
+        $rs_z = 36969 * ($rs_z & 0xFFFF) + ($rs_z >> 16);
+        $rs_w = 18000 * ($rs_w & 0xFFFF) + ($rs_w >> 16);
+        $ret = ($rs_z << 16) + $rs_w;  /* 32-bit result */
+
+        $this->rs_w = $rs_w;
+        $this->rs_z = $rs_z;
+
+        return $ret;
+    }
+
+    // -------------------------------------------------
+    /**
+     *  Generate and serve to client a random bitmap image.
+     *
+     *  This method helps to visually inspect a random number generator (RNG).
+     *  It is not enough to know how good the RNG is,
+     *  but it can tell that the RNG is bad or something is wrong.
+     *
+     *  @note Requires the GD Library
+     *
+     *  Inspired by  http://boallen.com/random-numbers.html
+     *
+     */
+    public function servImg($width=64, $height=64, $meth='rand32') {
+        header("Content-type: image/png");
+        $im = imagecreatetruecolor($width, $height) or die("Cannot Initialize new GD image stream");
+        $white = imagecolorallocate($im, 255, 255, 255);
+
+        $g = $this->$meth();
+        $iss = is_string($g); // string or int32
+        if($iss) {
+            $p = strlen($g);
+            $r = ord(substr($g, --$p, 1));
+            $bitSize = 8; // 1 bytes == 8 bits
+        }
+        else {
+            $r = $g;
+            $bitSize = 32; // 4 bytes == 32 bits
+        }
+        $i = $bitSize;
+
+        for($y = 0; $y < $height; $y++) {
+            for($x = 0; $x < $width; $x++) {
+                if($i == 0) {
+                    if($iss) {
+                        if(!$p) {
+                            $g = $this->$meth();
+                            $p = strlen($g);
+                        }
+                        $r = ord(substr($g, --$p, 1));
+                    }
+                    else {
+                        $r = $this->$meth();
+                    }
+                    $i = $bitSize;
+                }
+                if($r & 1) {
+                    imagesetpixel($im, $x, $y, $white);
+                }
+                $r >>= 1;
+                --$i;
+            }
+        }
+        imagepng($im);
+        imagedestroy($im);
+    }
 
     // -------------------------------------------------
     public function setSecret($secret) {
