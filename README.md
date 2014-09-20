@@ -21,28 +21,35 @@ Entropy can also be collected from common website clients.
 ## Basic Usage
 
 Include the class
+
     require_once "/path/to/lib/P2PEG.php";
     
 Get the singleton instance or just create a new instance of P2PEG
+
     $P2PEG = P2PEG::instance();
     
 Get some random binary string
+
     $str = $P2PEG->str($length);
 
 Now you can use `$str` as cryptographic salt, seed for PRNG, password generators or anything else that requires unpredictable hight entropy data.
     
 Get some random integer numbers:
+
     $int1 = $P2PEG->int();
     $int2 = $P2PEG->int16();
     $int3 = $P2PEG->int32();
     
 Get some random text (base64 encoded)
+
     $text = $P2PEG->text($length);
     
 Get some random string hex encoded
+
     $hex = $P2PEG->hex($length);
 
 Get a pseudo random 32bit integer - this method is faster then int32() for generating lots of numbers, but in turn it uses less entropy
+
     $rand_int = $P2PEG->rand32();
 
 ## Advanced Usage
@@ -50,21 +57,27 @@ Get a pseudo random 32bit integer - this method is faster then int32() for gener
 Before using the instance of `P2PEG` class, it is a good idea to set some properties:
 
 optional - Internal state file: keep it inaccessible to other users on system by `chmod 0600 p2peg.dat`
+
     $P2PEG->state_file = "/path/to/data/p2peg.dat";
     
 A secret key chosen at setup
+
     $P2PEG->setSecret("some uniq secret that no one knows");
 
 Seed the P2PEG with some bits of data or your choise
+
     $P2PEG->seed("some (random) string");
     
 Seed the PHP's RNG
+
     mt_srand(crc32($P2PEG->seed()));
     
 Get a 56bit integer, if system is x64
+
     $int64 = $P2PEG->int(7);
 
 Display a random bitmap image
+
     $$P2PEG->servImg($width,$height,$method='rand32');
     
 Take care of what `$method` you allow for `servImg()`, cause it could display some private data to client.
