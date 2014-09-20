@@ -1,7 +1,7 @@
 
 # Peer to Peer Entropy Generator
 ## or Random data generator with p2p seeding
-@version 0.1.1
+@version 0.1.2
 
 ## About
 
@@ -20,62 +20,62 @@ Entropy can also be collected from common website clients.
 
 ## Basic Usage
 
-    // Include the class
+Include the class
     require_once "/path/to/lib/P2PEG.php";
     
-    // Get the singleton instance or just create a new instance of P2PEG
+Get the singleton instance or just create a new instance of P2PEG
     $P2PEG = P2PEG::instance();
     
-    // Get some random binary string
+Get some random binary string
     $str = $P2PEG->str($length);
 
 Now you can use `$str` as cryptographic salt, seed for PRNG, password generators or anything else that requires unpredictable hight entropy data.
     
-    // Get some random integer numbers
+Get some random integer numbers:
     $int1 = $P2PEG->int();
     $int2 = $P2PEG->int16();
     $int3 = $P2PEG->int32();
     
-    // Get some random text (base64 encoded)
+Get some random text (base64 encoded)
     $text = $P2PEG->text($length);
     
-    // Get some random string hex encoded
+Get some random string hex encoded
     $hex = $P2PEG->hex($length);
 
-    // Get a pseudo random 32bit integer - this method is faster then int32() for generating lots of numbers, but in turn it uses less entropy
+Get a pseudo random 32bit integer - this method is faster then int32() for generating lots of numbers, but in turn it uses less entropy
     $rand_int = $P2PEG->rand32();
 
 ## Advanced Usage
 
 Before using the instance of `P2PEG` class, it is a good idea to set some properties:
 
-    // optional - Internal state file: keep it inaccessible to other users on system by `chmod 0600 p2peg.dat`
+optional - Internal state file: keep it inaccessible to other users on system by `chmod 0600 p2peg.dat`
     $P2PEG->state_file = "/path/to/data/p2peg.dat";
     
-    // A secret key chosen at setup
+A secret key chosen at setup
     $P2PEG->setSecret("some uniq secret that no one knows");
 
-    // Seed the P2PEG with some bits of data or your choise
+Seed the P2PEG with some bits of data or your choise
     $P2PEG->seed("some (random) string");
     
-    // Seed the PHP's RNG
+Seed the PHP's RNG
     mt_srand(crc32($P2PEG->seed()));
     
-    // Get a 56bit integer, if system is x64
+Get a 56bit integer, if system is x64
     $int64 = $P2PEG->int(7);
 
-    // Display a random bitmap image
+Display a random bitmap image
     $$P2PEG->servImg($width,$height,$method='rand32');
     
-Take care of what `$method` you allow for servImg(), cause it could display some private data to client.
-These methods are safe to display: `array('rand32', 'int','int32','int16','str','seed','text','hex','dynEntropy','clientEntropy')`
+Take care of what `$method` you allow for `servImg()`, cause it could display some private data to client.
+The following methods are safe to display to client: `array('rand32', 'int','int32','int16','str','seed','text','hex','dynEntropy','clientEntropy')`
 
 This method helps to visually inspect a random number generator (RNG). It is not enough to know how good the RNG is, but it can tell that the RNG is bad or something is wrong.
 
 Examples: https://duzun.me/entropy/img/rand32 https://duzun.me/entropy/img/str
 
 
-    // ... more comming soon
+ ... more comming soon
     
 
 ## Sample output
