@@ -87,7 +87,9 @@ The following methods are safe to display to client:
 
 This method helps to visually inspect a random number generator (RNG). It is not enough to know how good the RNG is, but it can tell that the RNG is bad or something is wrong.
 
-Examples: https://duzun.me/entropy/img/rand32 https://duzun.me/entropy/img/str
+Examples:
+    https://duzun.me/entropy/img/rand32
+    https://duzun.me/entropy/img/str
 
 
  ... more comming soon
