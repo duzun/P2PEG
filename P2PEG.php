@@ -24,13 +24,13 @@
  *      curl https://DUzun.Me/entropy/<hash(random_func().$secret)>
  *
  *
- *  @version 0.1.1
+ *  @version 0.1.2
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    static $version = '0.1.1';
+    static $version = '0.1.2';
 
     // First start timestamp
     static $start_ts;
@@ -52,6 +52,7 @@ class P2PEG {
 
     // State values
     private $_state;
+    private $_state_mtime;
     protected $_clientEntropy;
     protected $_serverEntropy;
     protected $_filesystemEntropy;
@@ -80,9 +81,18 @@ class P2PEG {
 
     public function __destruct() {
         // parent::__destruct();
-        if($this->_state && $this->state_file) {
-            // Save state somewhere
-            @$this->flock_put_contents($this->state_file, $this->_state);
+        
+        // Save state to a file
+        if($this->_state and $sf = $this->state_file) {
+            // If meanwhile state file changed, don't loose that entropy
+            clearstatcache(true, $sf);
+            $flags = 1;
+            if(@filemtime($sf) != $this->_state_mtime) {
+                $flags |= FILE_APPEND;
+            }
+            // @TODO: Watch for state file size if the server is very busy
+            
+            @$this->flock_put_contents($sf, $this->_state, $flags);
         }
     }
     // -------------------------------------------------
@@ -236,6 +246,7 @@ class P2PEG {
         $im = imagecreatetruecolor($width, $height) or die("Cannot Initialize new GD image stream");
         $white = imagecolorallocate($im, 255, 255, 255);
 
+        // @TODO: Check if $method is save to display to client
         $g = $this->$meth();
         $iss = is_string($g); // string or int32
         if($iss) {
@@ -465,9 +476,11 @@ class P2PEG {
             if($state_file) {
                 if(file_exists($state_file)) {
                     // We could use filemtime($state_file) as entropy too
+                    $this->_state_mtime = filemtime($state_file);
                     $this->_state = $this->flock_get_contents($state_file);
                 }
                 else {
+                    $this->_state_mtime = 0;
                     is_dir($dir = dirname($state_file)) or mkdir($dir, 0600, true);
                 }
             }
