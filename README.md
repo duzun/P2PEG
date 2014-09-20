@@ -1,14 +1,14 @@
 
 # Peer to Peer Entropy Generator
 ## or Random data generator with p2p seeding
-@version 0.1.0
+@version 0.1.1
 
 ## About
 
 This class uses a combination of sources of entropy to generate random data as unpredictable as posible. 
 The key concept is sharing of random data between peers, where each peer benefits from each request.
 
-Internally each peer generates random data using some system data, server performance/load, some PRNGs (Pseudo random Number Generators) available to PHP, timing and client supplied data. This way the generated data apears unpredictable to the connecting peer and at the same time is also influenced by the connecting peer.
+Internally each peer generates random data using some system data, server performance/load, some PRNGs (Pseudo Random Number Generators) available to PHP, timing and client supplied data. This way the generated data apears unpredictable to the connecting peer and at the same time is also influenced by all connecting peers.
 
 If the peer doesn't trust the other peer to be "honest", it can contact multiple peers to gather the random bits. And the collected data is always combinet with the peer's secred and some internat random data.
 
@@ -16,6 +16,7 @@ Each peer adds to the entropy of the other peer by suppling variable data with t
 
 For connecting peers there is no way to know about `P2PEG`'s internal state or about other connecting peers, hence generated data is truly random.
 
+Entropy can also be collected from common website clients.
 
 ## Basic Usage
 
@@ -41,6 +42,8 @@ Now you can use `$str` as cryptographic salt, seed for PRNG, password generators
     // Get some random string hex encoded
     $hex = $P2PEG->hex($length);
 
+    // Get a pseudo random 32bit integer - this method is faster then int32() for generating lots of numbers, but in turn it uses less entropy
+    $rand_int = $P2PEG->rand32();
 
 ## Advanced Usage
 
@@ -58,6 +61,19 @@ Before using the instance of `P2PEG` class, it is a good idea to set some proper
     // Seed the PHP's RNG
     mt_srand(crc32($P2PEG->seed()));
     
+    // Get a 56bit integer, if system is x64
+    $int64 = $P2PEG->int(7);
+
+    // Display a random bitmap image
+    $$P2PEG->servImg($width,$height,$method='rand32');
+    
+Take care of what `$method` you allow for servImg(), cause it could display some private data to client.
+These methods are safe to display: `array('rand32', 'int','int32','int16','str','seed','text','hex','dynEntropy','clientEntropy')`
+
+This method helps to visually inspect a random number generator (RNG). It is not enough to know how good the RNG is, but it can tell that the RNG is bad or something is wrong.
+
+Examples: https://duzun.me/entropy/img/rand32 https://duzun.me/entropy/img/str
+
 
     // ... more comming soon
     
@@ -73,5 +89,6 @@ To improve the entropy unpredictability, I intend to create system where multipl
 Each pear gets entropy and gives entropy at the same time with a simple GET request like this one:
 
     curl https://DUzun.Me/entropy/<hash(random_func().$secret)>
+
 
 
