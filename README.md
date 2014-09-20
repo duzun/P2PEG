@@ -56,7 +56,7 @@ Get a pseudo random 32bit integer - this method is faster then int32() for gener
 
 Before using the instance of `P2PEG` class, it is a good idea to set some properties:
 
-optional - Internal state file: keep it inaccessible to other users on system by `chmod 0600 p2peg.dat`
+Internal state file - optional. Tip: Keep it inaccessible to other users on system by `chmod 0600 p2peg.dat`
 
     $P2PEG->state_file = "/path/to/data/p2peg.dat";
     
@@ -81,7 +81,9 @@ Display a random bitmap image
     $$P2PEG->servImg($width,$height,$method='rand32');
     
 Take care of what `$method` you allow for `servImg()`, cause it could display some private data to client.
-The following methods are safe to display to client: `array('rand32', 'int','int32','int16','str','seed','text','hex','dynEntropy','clientEntropy')`
+The following methods are safe to display to client:
+
+    $allowMethods = array('rand32', 'int','int32','int16','str','seed','text','hex','dynEntropy','clientEntropy');
 
 This method helps to visually inspect a random number generator (RNG). It is not enough to know how good the RNG is, but it can tell that the RNG is bad or something is wrong.
 
