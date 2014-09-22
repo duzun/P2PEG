@@ -543,7 +543,7 @@ class P2PEG {
     // -------------------------------------------------
     public function networkEntropy($autoseed=true) {
         $_entr = array();
-        $len = 64;
+        $len = 256;
 
         $t1 = microtime(true);
         
