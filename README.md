@@ -1,7 +1,7 @@
 
 # Peer to Peer Entropy Generator
 ## or Random numbers generator with p2p seeding
-@version 0.1.2
+@version 0.1.3
 
 ## About
 
@@ -78,12 +78,12 @@ Get a 56bit integer, if system is x64
 
 Display a random bitmap image
 
-    $$P2PEG->servImg($width,$height,$method='rand32');
+    $P2PEG->servImg($width,$height,$method='rand32',$itemSize=0);
     
 Take care of what `$method` you allow for `servImg()`, cause it could display some private data to client.
 The following methods are safe to display to client:
 
-    $allowMethods = array('rand32', 'int','int32','int16','str','seed','text','hex','dynEntropy','clientEntropy');
+    $allowMethods = array('rand32', 'int','int32','int16','str','seed','text','hex','dynEntropy','clientEntropy','networkEntropy');
 
 This method helps to visually inspect a random number generator (RNG). It is not enough to know how good the RNG is, but it can tell that the RNG is bad or something is wrong.
 
@@ -91,6 +91,16 @@ Examples:
 - https://duzun.me/entropy/img/rand32
 - https://duzun.me/entropy/img/str
 
+
+Get some entropy from outside
+    
+    $P2PEG->networkEntropy($autoseed=true);
+
+On cron event you could call
+
+    $P2PEG->expensiveEntropy($autoseed=true);
+    
+This method gathers some network entropy and server entropy and can be realy slow. This is why it is a good idea to call it in background. But at the same time it is a good idea to call it from time to time, to get some more unpredictable, crtypto-safe entropy.
 
  ... more comming soon
     
