@@ -16,7 +16,8 @@
  *  or trying to guess
  *
  *  @TODO
- *      To improve the entropy unpredictability, I intend to create system
+ *
+ *  1.  To improve the entropy unpredictability, I intend to create system
  *      where multiple machines periodically exchange entropy.
  *      Each pear gets entropy and gives entropy at the same time
  *      with a simple GET request like this one:
@@ -24,13 +25,19 @@
  *      curl https://DUzun.Me/entropy/<hash(random_func().$secret)>
  *
  *
- *  @version 0.1.3
+ *  2.  Seed /dev/random and update entropy count, to improve system performance
+ *
+ *
+ *  3.  Count the amount of entropy generated
+ *
+ *
+ *  @version 0.2.0
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    static $version = '0.1.3';
+    static $version = '0.2.0';
 
     // First start timestamp
     static $start_ts;
@@ -38,7 +45,7 @@ class P2PEG {
     // Singleton instance
     static protected $instance;
 
-    /// A secred string, should be unique on each instalation
+    /// A secred string, should be unique on each installation (: http://xkcd.com/221/ :)
     private $_secret = ',!8L_J:UWWl\'ACt:7c05!R8}~>yb!gPP=|(@FBny\'ao/&-\jVs';
 
     /// Path to a file where to store state data
@@ -49,6 +56,9 @@ class P2PEG {
     /// Use first available hash alg from the list
     public $hash = array('sha512', 'sha256', 'sha128', 'sha1', 'md5');
 
+
+    // If true, call seedRandomDev() on __destruct
+    public $seedSys = true;
 
     // State values
     private $_state;
@@ -88,17 +98,26 @@ class P2PEG {
         // parent::__destruct();
 
         // Save state to a file
-        if($this->_state and $sf = $this->state_file) {
-            // If meanwhile state file changed, don't loose that entropy
-            clearstatcache(true, $sf);
-            $flags = 1;
-            if(@filemtime($sf) != $this->_state_mtime) {
-                $flags |= FILE_APPEND;
-            }
-            // @TODO: Watch for state_file size if the server is very busy
+        $this->save_state();
 
-            @$this->flock_put_contents($sf, $this->_state, $flags);
+        // Influence /dev/urandom and /dev/random
+        if($this->seedSys) $this->seedRandomDev(__METHOD__);
+    }
+    // -------------------------------------------------
+    public function save_state($sf=NULL) {
+        if(!$this->_state) return false; // Nothing to save
+        if(!$sf) $sf = $this->state_file;
+        if(!$sf) return false; // No where to save
+
+        // If meanwhile state file changed, don't loose that entropy
+        clearstatcache(true, $sf);
+        $flags = 1;
+        if(@filemtime($sf) != $this->_state_mtime) {
+            $flags |= FILE_APPEND;
         }
+        // @TODO: Watch for state_file size if the server is very busy
+
+        return @$this->flock_put_contents($sf, $this->_state, $flags);
     }
     // -------------------------------------------------
     public function warmup($secret=NULL) {
@@ -732,6 +751,51 @@ class P2PEG {
         $r = getenv($n);
         if($r === false) $r = isset($_SERVER[$n]) ? $_SERVER[$n] : false;
         return $r;
+    }
+
+    // -------------------------------------------------
+    /**
+     *   Write some random bits to /dev/random or /dev/urandom
+     *
+     *   From `man 4 random`:
+     *      Writing to /dev/random or /dev/urandom will update the entropy pool
+     *      with the data written, but this will not result in a higher entropy
+     *      count.  This means that it will impact the contents read from both
+     *      files, but it will not make reads from /dev/random faster.
+     */
+    public function seedRandomDev($seed=NULL) {
+        $this->seedSys = false; // system random seeded, don't seed again on __destruct()
+
+        // Aditional entropy
+        if(isset($seed)) {
+            $this->seed($seed);
+        }
+        $ret = $this->frand_put_content('/dev/random') or
+        $ret = $this->frand_put_content('/dev/urandom');
+        return $ret;
+    }
+
+    // -------------------------------------------------
+    /**
+     *   Write $length bytes of random data to $filename file.
+     *
+     *   If $length is not specified, write data from internal buffer.
+     */
+    public function frand_put_content($filename, $length=NULL, $append=false) {
+        $f = @fopen($filename, $append?'c':'w');
+        if($f) {
+            if(empty($length)) {
+                $str = strlen($this->_b) ? $this->_b : $this->seed($filename.$append);
+            }
+            else {
+                $str = $this->str($length);
+            }
+            if($append) fseek($f, 0, SEEK_END);
+            $ret = fwrite($f, $str);
+            fclose($f);
+            return $ret;
+        }
+        return false;
     }
 
     // -------------------------------------------------
