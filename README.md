@@ -112,10 +112,13 @@ https://duzun.me/entropy
 
 ## TODO
 
-To improve the entropy unpredictability, I intend to create system where multiple machines periodically exchange entropy. 
+1. To improve the entropy unpredictability, I intend to create system where multiple machines periodically exchange entropy. 
 Each pear gets entropy and gives entropy at the same time with a simple GET request like this one:
 
     curl https://DUzun.Me/entropy/<hash(random_func().$secret)>
 
+2. Seed /dev/random to improve system performance
+
+3. Count the amount of entropy gathered
 
 
