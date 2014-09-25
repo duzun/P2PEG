@@ -1,7 +1,7 @@
 
 # Peer to Peer Entropy Generator
 ## or Random numbers generator with p2p seeding
-@version 0.1.3
+@version 0.2.0
 
 ## About
 
@@ -72,6 +72,10 @@ Seed the PHP's RNG
 
     mt_srand(crc32($P2PEG->seed()));
     
+Write to `/dev/random`
+    
+    $P2PEG->seedRandomDev("some (optional) entropy");
+
 Get a 56bit integer, if system is x64
 
     $int64 = $P2PEG->int(7);
@@ -115,10 +119,10 @@ https://duzun.me/entropy
 1. To improve the entropy unpredictability, I intend to create system where multiple machines periodically exchange entropy. 
 Each pear gets entropy and gives entropy at the same time with a simple GET request like this one:
 
-    curl https://DUzun.Me/entropy/<hash(random_func().$secret)>
+    `curl "https://DUzun.Me/entropy/<hash(random_func().$secret)>"`
 
-2. Seed /dev/random to improve system performance
+2. Seed `/dev/random` and update entropy count, to improve system performance
 
-3. Count the amount of entropy gathered
+3. Count the amount of entropy generated
 
 
