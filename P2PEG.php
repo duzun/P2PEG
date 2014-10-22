@@ -31,22 +31,19 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.2.0
+ *  @version 0.2.1
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    static $version = '0.2.0';
+    static $version = '0.2.1';
 
     // First start timestamp
     static $start_ts;
 
     // Singleton instance
     static protected $instance;
-
-    /// A secred string, should be unique on each installation (: http://xkcd.com/221/ :)
-    private $_secret = ',!8L_J:UWWl\'ACt:7c05!R8}~>yb!gPP=|(@FBny\'ao/&-\jVs';
 
     /// Path to a file where to store state data
     public $state_file;
@@ -55,6 +52,9 @@ class P2PEG {
 
     /// Use first available hash alg from the list
     public $hash = array('sha512', 'sha256', 'sha128', 'sha1', 'md5');
+
+    // Padding for HMAC-HASH
+    private $_opad, $_ipad;
 
 
     // If true, call seedRandomDev() on __destruct
@@ -87,10 +87,11 @@ class P2PEG {
         return self::$instance;
     }
     // -------------------------------------------------
-    public function __construct($secret=NULL) {
+    /// @param (string)$secret - A secred string, should be unique on each installation (: http://xkcd.com/221/ :)
+    public function __construct($secret=',!8L_J:UWWl\'ACt:7c05!R9}~>yb!gPP=|(@FBny\'ao/&-\jVs') {
         // parent::__construct();
         isset(self::$start_ts) or self::$start_ts = microtime(true);
-        $this->setSecret(isset($secret) ? $secret : $this->_secret);
+        $this->setSecret($secret);
         isset(self::$int_len) or self::$int_len = round(PHP_INT_SIZE * log10(256));
     }
 
@@ -339,9 +340,23 @@ class P2PEG {
     }
 
     // -------------------------------------------------
-    public function setSecret($secret) {
-        // For performance bust, digest the secret
-        $this->_secret = hash('sha1', $secret, true);
+    public function setSecret($key) {
+        $size = 64;
+        $l = strlen($key);
+        if($size < $l) {
+            $key = hash('sha1', $key, true);
+            if($key === FALSE) return $key;
+            $l = strlen($key);
+        }
+        if($l < $size) {
+            $key = str_pad($key, $size, chr(0));
+        }
+        else {
+            $key = substr($key, 0, -1) . chr(0);
+        }
+
+        $this->_opad = str_repeat(chr(0x5C), $size) ^ $key;
+        $this->_ipad = str_repeat(chr(0x36), $size) ^ $key;
     }
     // -------------------------------------------------
     /**
@@ -668,21 +683,20 @@ class P2PEG {
     // -------------------------------------------------
 
     public function hash($str, $raw=true) {
-        $str .= $this->_secret;
+        $str = $this->_ipad . $str;
         if(is_array($this->hash)) {
             foreach($this->hash as $h) {
-                $ret = hash($h, $str, $raw);
+                $ret = hash($h, $str, true);
                 if($ret !== false) {
                     $this->hash = $h;
-                    return $ret;
+                    return hash($h, $this->_opad . $ret, $raw);
                 }
             }
             $this->hash = 'sha1'; // minimum required sha1
         }
-        $ret = hash($this->hash, $str, $raw);
+        $ret = hash($this->hash, $this->_opad . hash($this->hash, $this->_ipad . $str, true), $raw);
         return $ret;
     }
-
     // -------------------------------------------------
 
     // Helper methods:
