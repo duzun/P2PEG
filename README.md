@@ -1,22 +1,25 @@
 
 # Peer to Peer Entropy Generator
 ## or Random numbers generator with p2p seeding
-@version 0.2.0
+@version 0.2.1
 
 ## About
 
 This class uses a combination of sources of entropy to generate random data as unpredictable as posible. 
-The key concept is sharing of random data between peers, where each peer benefits from each request.
+The key concept is sharing of random data between peers, where both peers benefit from the request.
 
-Internally each peer generates random data using some system data, server performance/load, some PRNGs (Pseudo Random Number Generators) available to PHP, timing and client supplied data. This way the generated data apears unpredictable to the connecting peer and at the same time is also influenced by all connecting peers.
+Internally each peer generates random data using some system data, server performance/load, some PRNGs (Pseudo Random Number Generators), timing and client supplied data.
+The collected data is always combined with the internal state data, which changes at each request, and digested by a [HMAC](https://en.wikipedia.org/wiki/Hash-based_message_authentication_code) with the peer's secret key.
 
-If the peer doesn't trust the other peer to be "honest", it can contact multiple peers to gather the random bits. And the collected data is always combinet with the peer's secret and some internat random data.
+Each client-peer adds to the entropy of the server-peer by suppling variable data with the request (in purpos or not) and by the fact of connecting to the server (the exact request time is also accounted), thus changing internal state of the `P2PEG`.
+The internal state is the sum of all collected entropy bits from system and from all client-peers that have ever requested current peer.
 
-Each peer adds to the entropy of the other peer by suppling variable data with the request (in purpos or not) and by the fact of connecting to the server (the exact request time is also accounted), thus changing internal state of the `P2PEG`.
+For client-peer there is no way to know about `P2PEG`'s internal state or about other client-peers, hence generated data is truly random and unpredictable.
 
-For connecting peers there is no way to know about `P2PEG`'s internal state or about other connecting peers, hence generated data is truly random.
+If one peer doesn't trust the other peer to be "honest", it can contact multiple peers to gather the random bits and combine the result with it's own PRN and internal state.
 
-Entropy can also be collected from common website clients.
+On a web-server entropy can also be collected from common website clients.
+
 
 ## Basic Usage
 
