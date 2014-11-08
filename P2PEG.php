@@ -31,13 +31,13 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.2.1
+ *  @version 0.2.2
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    static $version = '0.2.1';
+    static $version = '0.2.2';
 
     // First start timestamp
     static $start_ts;
@@ -394,7 +394,7 @@ class P2PEG {
      */
     public function clientEntropy() {
         if(!isset($this->_clientEntropy)) {
-            if(strncmp(php_sapi_name(), 'cgi', 3) == 0) {
+            if(strncmp(php_sapi_name(), 'cli', 3) == 0) {
                 global $argv;
                 $_entr = implode('', $argv);
                 $_entr = $_entr ? $this->hash($_entr,true) : '';
