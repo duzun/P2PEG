@@ -101,9 +101,12 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
      *  @author DUzun
      */
     public function testSeed() {
-        $s1 = self::$inst->state();
-        $seed = self::$inst->seed(__FUNCTION__);
-        $s2 = self::$inst->state();
+        $s1   = self::$inst->state();
+        $e    = self::$inst->hash($s1 . __FUNCTION__, true);
+        // Uncomment next line to use P2P seeding:
+        // $e    = file_get_contents('https://duzun.me/entropy/str/'.self::$inst->bin2text($e));
+        $seed = self::$inst->seed($e);
+        $s2   = self::$inst->state();
 
         $this->assertNotEquals($s1, $s2, 'seed() didn\'t change the state');
         $this->assertNotEmpty($seed, 'seed() returns empty result');
@@ -121,7 +124,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
 
         echo PHP_EOL;
         echo "str(): ", self::$inst->bin2text($s1), PHP_EOL;
-        
+
         $this->assertNotEquals($s1, $s2, 'str() should return different result at each call');
         $this->assertNotEmpty($s1, 'str() should never return empty result');
         $this->assertNotEmpty($s2, 'str() should never return empty result');
