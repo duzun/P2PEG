@@ -31,13 +31,13 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.2.2
+ *  @version 0.2.3
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    static $version = '0.2.2';
+    static $version = '0.2.3';
 
     // First start timestamp
     static $start_ts;
@@ -56,13 +56,16 @@ class P2PEG {
     // Padding for HMAC-HASH
     private $_opad, $_ipad;
 
-
     // If true, call seedRandomDev() on __destruct
     public $seedSys = true;
 
+    // Seed for rand32() method
+    public $rs_z = 0;
+    public $rs_w = 0;
+
     // State values
     private $_state;
-    private $_state_mtime;
+    protected $_state_mtime;
     protected $_clientEntropy;
     protected $_serverEntropy;
     protected $_serverEEntropy;
@@ -70,11 +73,7 @@ class P2PEG {
 
     // internal buffer
     private $_b = ''; // data
-    private $_l = 0; // available (unused) length
-
-    // Seed for rand32() method
-    public $rs_z = 0;
-    public $rs_w = 0;
+    private $_l = 0;  // available (unused) length
 
     // How many degimal digits fit in one int
     static protected $int_len;
@@ -88,11 +87,13 @@ class P2PEG {
     }
     // -------------------------------------------------
     /// @param (string)$secret - A secred string, should be unique on each installation (: http://xkcd.com/221/ :)
-    public function __construct($secret=',!8L_J:UWWl\'ACt:7c05!R9}~>yb!gPP=|(@FBny\'ao/&-\jVs') {
+    public function __construct($secret=',!8L_J:UW~l\'ACt:7c05!R9}~>yb!gPP=|(@FBny\'ao/&-\jVs') {
         // parent::__construct();
         isset(self::$start_ts) or self::$start_ts = microtime(true);
         $this->setSecret($secret);
         isset(self::$int_len) or self::$int_len = round(PHP_INT_SIZE * log10(256));
+
+        $this->seedSys = !$this->isWindows();
     }
 
     public function __destruct() {
@@ -156,7 +157,9 @@ class P2PEG {
         }
         // If we have to return exactly what is in the buffer, return quickly
         if(!isset($len) || $len == $l) {
-            $ret = $this->_b;
+            // remove used data from buffer to avoid reusing it
+            $ret = $l < strlen($this->_b) ? substr($this->_b, 0, $l) : $this->_b;
+            // empty the buffer
             $this->_b = '';
             $this->_l = 0;
             return $ret;
@@ -165,7 +168,9 @@ class P2PEG {
         $ret = '';
         // If we need more data than we have in the buffer, generate some more
         if($l < $len) {
-            if($l < strlen($this->_b)) $this->_b = substr($this->_b, 0, $l); // remove used data from buffer to avoid reusing it
+            // remove used data from buffer to avoid reusing it
+            if($l < strlen($this->_b)) $this->_b = substr($this->_b, 0, $l);
+
             do {
                 $ret .= $this->_b; // save what is in the buffer
                 $this->seed($l);   // fill it again
@@ -175,8 +180,10 @@ class P2PEG {
 
         // If buffer has more data then we need
         if($len < $l) {
-            $this->_l = $l - $len;                // how much data we don't need from buffer
-            $ret .= substr($this->_b, $this->_l); // get only that much we need from buffer and leave the rest for others
+            // how much data we don't need from buffer ?
+            $this->_l = $l - $len;
+            // get only that much we need from buffer and leave the rest for others
+            $ret .= substr($this->_b, $this->_l, $len);
         }
         // else buffer has exactly how much data we need - grab it all
         else {
@@ -263,8 +270,12 @@ class P2PEG {
         $rs_z = $this->rs_z;
 
         // Seed if necessary
-        while(!$rs_w || $rs_w == 0x464fffff) $rs_w = $this->int32() ^ $this->int32();  /* must not be zero, nor 0x464fffff */
-        while(!$rs_z || $rs_z == 0x9068ffff) $rs_z = $this->int32() ^ $this->int32();  /* must not be zero, nor 0x9068ffff */
+        while(!$rs_w || $rs_w == 0x464fffff) {
+            $rs_w = $this->int32() ^ $this->int32(); /* must not be zero, nor 0x464fffff */
+        }
+        while(!$rs_z || $rs_z == 0x9068ffff) {
+            $rs_z = $this->int32() ^ $this->int32(); /* must not be zero, nor 0x9068ffff */
+        }
 
         $rs_z = 36969 * ($rs_z & 0xFFFF) + ($rs_z >> 16);
         $rs_w = 18000 * ($rs_w & 0xFFFF) + ($rs_w >> 16);
@@ -357,6 +368,9 @@ class P2PEG {
 
         $this->_opad = str_repeat(chr(0x5C), $size) ^ $key;
         $this->_ipad = str_repeat(chr(0x36), $size) ^ $key;
+
+        // Empty the buffer
+        $this->_l = 0;
     }
     // -------------------------------------------------
     /**
@@ -533,8 +547,14 @@ class P2PEG {
             $_entr = array();
             $len = 64;
 
+            $is_win = $this->isWindows();
+
+            $cmds = $is_win
+                ? array('net stats srv')
+                : array('uptime', 'iostat', 'ps');
+
             // Some system data
-            foreach (array('uptime', 'iostat', 'ps') as $cmd) {
+            foreach ($cmds as $cmd) {
                 $s = array();
                 @exec($cmd, $s, $ret);
                 if($s && is_array($s) && $ret === 0) {
@@ -642,7 +662,7 @@ class P2PEG {
     public function state() {
         if(!isset($this->_state)) {
             if(!$this->state_file) {
-                $this->state_file = sys_get_temp_dir() . DS . __CLASS__ . '.dat';
+                $this->state_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . __CLASS__ . '.dat';
             }
             $state_file = $this->state_file;
             if($state_file) {
@@ -872,6 +892,11 @@ class P2PEG {
            fclose($f);
        }
        return $ret;
+    }
+    // -------------------------------------------------
+    function isWindows() {
+        return getenv('WINDIR') || getenv('windir');
+        // return DIRECTORY_SEPARATOR != '/';
     }
     // -------------------------------------------------
 
