@@ -32,10 +32,11 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
 
     // After all tests
     static public function tearDownAfterClass() {
-        if(!empty(self::$inst->state_file))
-            unlink(self::$inst->state_file);
+        $state_file = self::$inst->state_file;
 
         self::$inst = NULL;
+
+        empty($state_file) or unlink($state_file);
     }
 
 
@@ -118,6 +119,9 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $len = strlen($s1);
         $s2  = self::$inst->str();
 
+        echo PHP_EOL;
+        echo "str(): ", self::$inst->bin2text($s1), PHP_EOL;
+        
         $this->assertNotEquals($s1, $s2, 'str() should return different result at each call');
         $this->assertNotEmpty($s1, 'str() should never return empty result');
         $this->assertNotEmpty($s2, 'str() should never return empty result');
