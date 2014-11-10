@@ -1,5 +1,5 @@
 /**
- *  This file is under devekioment.
+ *  This file is under develoment.
  *
  *  @TODO: all ???
  *
@@ -7,6 +7,7 @@
  */
 
 var sha1   = require('./lib/sha1.js');
+var sha512 = require('./lib/sha512.js');
 var base64 = require('./lib/base64.js');
 
 ;(function $_P2PEG(root, Function, String, Date, Math) {
@@ -14,11 +15,12 @@ var base64 = require('./lib/base64.js');
     ;(Date.now instanceof Function) || (Date.now = function now() { return +(new Date) });
     // -------------------------------------------------
     var undefined
-    ,   version = '0.2.3'
+    ,   version  = '0.3.0'
     ,   INT_SIZE = 4
     ,   start_ts = Date.now()
     ,   _instance
-    ,   int_len = Math.round(INT_SIZE * Math.log10(256))
+    ,   int_len  = Math.round(INT_SIZE * Math.log10(256))
+
     ,   P2PEG = function (secret) {
             // Private
             var _opad, _ipad
@@ -37,6 +39,50 @@ var base64 = require('./lib/base64.js');
             ,   _self = this
             ;
 
+            // -------------------------------------------------
+            // Private Methods
+            _self.setSecret = function setSecret(key) {
+                var size = 64;
+                var l = String(key).length;
+                if(size < l) {
+                    key = sha1(key);
+                    if(key === FALSE) return key;
+                    key = hex2bin(key);
+                    l = strlen($key);
+                }
+                if(l < size) {
+                    key = str_pad(key, size, chr(0), false);
+                }
+                else {
+                    key = key + substr(0, -1) + chr(0);
+                }
+
+                _opad = str_repeat(chr(0x5C), size) ^ key;
+                _ipad = str_repeat(chr(0x36), size) ^ key;
+
+                // Empty the buffer
+                _l = 0;
+            }
+
+            _self.seed = function seed(_seed) {
+                var ret = _self.state()
+                        + String(_seed)
+                        + _self.dynEntropy()
+                ;
+                ret = _self.hash(ret, true);
+                _state = strxor(_state, ret);
+                _b = ret;
+                _l = ret.length;
+                return ret;
+            }
+
+            _self.hash = function hash(str, raw) {
+                if( raw === undefined ) raw = true; // default
+                str = _ipad + str;
+                var ret = hash(_opad + hash(_ipad + str, true), raw);
+                return $ret;
+            }
+            // -------------------------------------------------
             // __construct()
             if ( secret == undefined ) {
                 secret = ',!8L_J:UW~l\'ACt:7c05!R9}~>yb!gPP=|(@FBny\'ao/&-\jVs';
@@ -65,14 +111,10 @@ var base64 = require('./lib/base64.js');
     // -------------------------------------------------
     proto.constructor = P2PEG;
 
-    proto.setSecret = function setSecret(secret) {
-        // ???
-    }
+    proto.setSecret = undefined; // private level access
+    proto.seed      = undefined; // private level access
 
     // -------------------------------------------------
-    proto.seed = function seed(_seed) {
-        // ???
-    }
 
     // -------------------------------------------------
     /**
@@ -182,10 +224,7 @@ var base64 = require('./lib/base64.js');
         // ???
     }
 
-    proto.hash = function hash(str, raw) {
-        if( raw === undefined ) raw = true; // default
-        // ???
-    }
+    proto.hash = hash; // private level access
 
     proto.isServer = function isServer() {
         // ???
@@ -203,6 +242,40 @@ var base64 = require('./lib/base64.js');
 
     var floor = Math.floor;
     var ceil  = Math.ceil;
+
+    var chr = String.fromCharCode;
+
+    var str_pad = function (t, n, s, left) {
+        n >>>= 0;
+        var l = t.length
+        ,   d = n - l
+        ,   i
+        ,   p
+        ;
+        if(0 < d) {
+            if(s == null) s = ' ';
+            p = s.length;
+            i = 1 + (d / p) >> 0;
+            if(left) {
+                while(i--) t = s + t;
+                i = t.length;
+                t = n < i ? t.substr(i-n) : _(t)
+            }
+            else {
+                while(i--) t += s;
+                i = t.length;
+                t = n < i ? t.substr(0, n) : _(t)
+            }
+        }
+        return t;
+    };
+
+
+    var hash = function hash(str, raw) {
+        var ret = sha512(str);
+        return raw ? hex2bin(ret) : ret;
+    };
+
 
     /// Returns hex representation of the string
     /// If this is UTF8, it gets converted
@@ -263,7 +336,7 @@ var base64 = require('./lib/base64.js');
             }
         }
         for(m=0;m<n;m++) ret[m] = a.charCodeAt(m) ^ b.charCodeAt(m);
-        return String.fromCharCode.apply(String, ret);
+        return chr.apply(String, ret);
     };
 
     // -------------------------------------------------
