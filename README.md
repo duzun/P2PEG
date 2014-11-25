@@ -1,14 +1,16 @@
 
 # Peer to Peer Entropy Generator
 ## or Random numbers generator with p2p seeding
-@version 0.2.1
+@version 0.3.0
 
 ## About
+
+**Node**: There is a JavaScript version of this library under development [p2peg.js](https://github.com/duzun/p2peg.js).
 
 This class uses a combination of sources of entropy to generate random data as unpredictable as posible.
 The key concept is sharing of random data between peers, where both peers benefit from the request.
 
-Internally each peer generates random data using some system data, server performance/load, some PRNGs (Pseudo Random Number Generators), timing and client supplied data.
+Internally each peer generates random data using some system data, server performance/load, some [PRNGs](http://en.wikipedia.org/wiki/Pseudorandom_number_generator) (Pseudo Random Number Generators), timing and client supplied data.
 The collected data is always combined with the internal state data, which changes at each request, and digested by a [HMAC](https://en.wikipedia.org/wiki/Hash-based_message_authentication_code) with the peer's secret key.
 
 Each client-peer adds to the entropy of the server-peer by suppling variable data with the request (in purpos or not) and by the fact of connecting to the server (the exact request time is also accounted), thus changing internal state of the `P2PEG`.
@@ -164,6 +166,6 @@ Each pear gets entropy and gives entropy at the same time with a simple GET requ
 
 4. Test the quality of entropy
 
-5. Create a JavaScript version (in process)
+5. Create a JavaScript version (in development [here](https://github.com/duzun/p2peg.js))
 
 
