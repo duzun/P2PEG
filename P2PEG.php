@@ -1,7 +1,7 @@
 <?php
 /*!
  *  Peer to Peer Entropy Generator
- *  * or Random numbers generator with p2p seeding
+ *  or Random numbers generator with p2p seeding
  *
  *  This class uses a combination of system data, client supplied data,
  *  some PRNGs available to PHP and timing to generate unpredictable
@@ -31,13 +31,13 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.2.3
+ *  @version 0.3.0
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    static $version = '0.2.3';
+    static $version = '0.3.0';
 
     // First start timestamp
     static $start_ts;
@@ -64,7 +64,7 @@ class P2PEG {
     public $rs_w = 0;
 
     // State values
-    private $_state;
+    private   $_state;
     protected $_state_mtime;
     protected $_clientEntropy;
     protected $_serverEntropy;
@@ -100,13 +100,13 @@ class P2PEG {
         // parent::__destruct();
 
         // Save state to a file
-        $this->save_state();
+        $this->saveState();
 
         // Influence /dev/urandom and /dev/random
         if($this->seedSys) $this->seedRandomDev(__METHOD__);
     }
     // -------------------------------------------------
-    public function save_state($sf=NULL) {
+    public function saveState($sf=NULL) {
         if(!$this->_state) return false; // Nothing to save
         if(!$sf) $sf = $this->state_file;
         if(!$sf) return false; // No where to save
@@ -271,10 +271,12 @@ class P2PEG {
 
         // Seed if necessary
         while(!$rs_w || $rs_w == 0x464fffff) {
-            $rs_w = $this->int32() ^ $this->int32(); /* must not be zero, nor 0x464fffff */
+            /* must not be zero, nor 0x464fffff */
+            $rs_w = $this->int32() ^ $this->int32(); 
         }
         while(!$rs_z || $rs_z == 0x9068ffff) {
-            $rs_z = $this->int32() ^ $this->int32(); /* must not be zero, nor 0x9068ffff */
+            /* must not be zero, nor 0x9068ffff */
+            $rs_z = $this->int32() ^ $this->int32();
         }
 
         $rs_z = 36969 * ($rs_z & 0xFFFF) + ($rs_z >> 16);
