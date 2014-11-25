@@ -50,6 +50,11 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     }
 
     // -----------------------------------------------------
+    // public function testPlay() {
+        // var_export(hex2bin('7465737'));
+    // }
+    
+    // -----------------------------------------------------
     /**
      *  @author DUzun
      */
@@ -87,7 +92,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     public function testStateFile() {
         self::$inst->state();
         $this->assertNotEmpty(self::$inst->state_file, '$state_file is empty');
-        self::$inst->save_state();
+        self::$inst->saveState();
         $this->assertFileExists(self::$inst->state_file, 'state_file not saved ('.self::$inst->state_file.')');
 
         echo PHP_EOL;

@@ -1,16 +1,45 @@
 {
-    "name": "P2PEG"
-    , "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)"
-    , "version": "0.2.3"
-    , "author": "Dumitru Uzun <contact@duzun.me>"
-    , "keywords": ["p2p", "random", "entropy", "cryptography"]
-    , "main": "./P2PEG.js"
-    , "repository": {
-        "type": "git"
-        , "url": "http://github.com/duzun/P2PEG.git"
+  "name": "P2PEG",
+  "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)",
+  "version": "0.2.3",
+  "author": "Dumitru Uzun <contact@duzun.me>",
+  "homepage": "http://github.com/duzun/P2PEG",
+  "keywords": [
+    "P2P",
+    "random",
+    "entropy",
+    "cryptography",
+    "javascript",
+    "PHP"
+  ],
+  "main": "P2PEG.js",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/duzun/P2PEG.git"
+  },
+  "engines": {
+    "node": ">= 0.10.0"
+  },
+  "scripts": {
+    "test": "karma start tests/karma.conf.js",
+    "test-php": "phpu tests/TestP2PEG.php",
+    "compiler": "curl http://dl.google.com/closure-compiler/compiler-latest.tar.gz | tar -xz compiler.jar",
+    "min": "java -jar compiler.jar --compilation_level ADVANCED_OPTIMIZATIONS < P2PEG.js > P2PEG.min.js"
+  },
+  "license": [
+    {
+      "type": "MIT",
+      "url": "http://github.com/duzun/P2PEG/raw/master/LICENSE"
     }
-    , "engines": { "node": ">= 0.10.0" }
-    , "scripts": {
-    }
-    , "license": "MIT"
+  ],
+  "devDependencies": {
+    "jasmine-core": "^2.1.2",
+    "karma": "^0.12.25",
+    "karma-chrome-launcher": "^0.1.5",
+    "karma-ie-launcher": "^0.1.5",
+    "karma-jasmine": "^0.3.1",
+    "karma-phantomjs-launcher": "^0.1.4",
+    "karma-requirejs": "^0.2.2",
+    "requirejs": "^2.1.15"
+  }
 }
