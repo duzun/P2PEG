@@ -76,6 +76,25 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     }
 
     // -----------------------------------------------------
+    public function testHash() {
+        self::$inst->setSecret('secret 1');
+        $h1  = self::$inst->hash('test', true);
+        $h1r = self::$inst->hash('test', false);
+
+        self::log('hash ==', var_export(self::$inst->hash, true));
+
+        $this->assertGreaterThan(0, strlen($h1), 'raw hash is empty');
+        $this->assertGreaterThan(0, strlen($h1r), 'hash is empty');
+        $this->assertRegExp('#[^0-9a-fA-F]#', $h1, "hash('test', true) doen't seem to be raw");
+        $this->assertNotRegExp('#[^0-9a-fA-F]#', $h1r, "hash('test', false) is not hex");
+
+        self::$inst->setSecret('secret 2');
+        $h2 = self::$inst->hash('test', true);
+
+        $this->assertNotEquals($h1, $h2, 'Secret change did not affect hash()');
+    }
+
+    // -----------------------------------------------------
     public function testBinTextConv() {
         $str     = self::$inst->str();
         $text    = self::$inst->bin2text($str);
@@ -133,6 +152,11 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $b123 = $o->packInt(12345);
         $this->assertEquals($b123, $o->packInt(12345.6789));
         $this->assertEquals($b123, $o->packInt('12345.6789'));
+        $b123 = $o->packInt(98765);
+        $this->assertEquals($b123, $o->packInt(98765.5321));
+        $this->assertEquals($b123, $o->packInt('98765.5321'));
+
+        $this->assertTrue(0 != strncmp($o->packInt('512985229146'), "\xFF\xFF", 2));
     }
 
     public function testPackFloat() {
@@ -221,8 +245,8 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $s2  = self::$inst->str();
         $len = strlen($s2);
 
-        // self::log("str() =", substr($s1, 0, 48). '...');
-        self::log('strlen(str()) =', $len);
+        // self::log("str() ->", substr($s1, 0, 48). '...');
+        self::log('strlen(str()) ==', $len);
 
         $this->assertNotEquals($s1, $s2, 'str() should return different result at each call');
         $this->assertNotEmpty($s1, 'str() should never return empty result');
@@ -252,8 +276,8 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $s2  = self::$inst->text();
         $len = strlen($s2);
 
-        self::log("text() =", substr($s2, 0, 48). '...');
-        self::log('strlen(text()) =', $len);
+        self::log("text() ->", substr($s2, 0, 48). '...');
+        self::log('strlen(text()) ==', $len);
 
         $this->assertNotEquals($s1, $s2, 'text() should return different result at each call');
         $this->assertNotEmpty($s1, 'text() should never return empty result');
@@ -283,8 +307,8 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $s2  = self::$inst->hex();
         $len = strlen($s2);
 
-        self::log("hex() =", substr($s2, 0, 48). '...');
-        self::log('strlen(hex()) =', $len);
+        self::log("hex() ->", substr($s2, 0, 48). '...');
+        self::log('strlen(hex()) ==', $len);
 
         $this->assertNotEquals($s1, $s2, 'hex() should return different result at each call');
         $this->assertNotEmpty($s1, 'hex() should never return empty result');
@@ -306,23 +330,6 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $this->assertEquals(strlen($s2), $s2l, "hex({$s2l}) returned different length: ".strlen($s2));
         $this->assertEquals(strlen($s3), $s3l, "hex({$s3l}) returned different length: ".strlen($s3));
         $this->assertEquals(strlen($s4), $s4l, "hex({$s4l}) returned different length: ".strlen($s4));
-    }
-
-    // -----------------------------------------------------
-    public function testHash() {
-        self::$inst->setSecret('secret 1');
-        $h1  = self::$inst->hash('test', true);
-        $h1r = self::$inst->hash('test', false);
-
-        $this->assertGreaterThan(0, strlen($h1), 'raw hash is empty');
-        $this->assertGreaterThan(0, strlen($h1r), 'hash is empty');
-        $this->assertRegExp('#[^0-9a-fA-F]#', $h1, "hash('test', true) doen't seem to be raw");
-        $this->assertNotRegExp('#[^0-9a-fA-F]#', $h1r, "hash('test', false) is not hex");
-
-        self::$inst->setSecret('secret 2');
-        $h2 = self::$inst->hash('test', true);
-
-        $this->assertNotEquals($h1, $h2, 'Secret change did not affect hash()');
     }
 
     // -----------------------------------------------------
@@ -361,6 +368,19 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $this->assertNotEmpty($seed, 'seed() returns empty result');
     }
 
+    // -----------------------------------------------------
+    public function testDynEntropy() {
+        $o = self::$inst;
+
+        $e1 = $o->dynEntropy();
+        $e2 = $o->dynEntropy();
+        $this->assertNotEquals($e1, $e2, 'dynEntropy() should return different values');
+        $this->assertNotEmpty($e1, 'dynEntropy() should not be empty');
+        $this->assertNotEmpty($e2, 'dynEntropy() should not be empty');
+
+        self::log('dynEntropy() ->', $o->bin2text($e1));
+        self::log('dynEntropy() ->', $o->bin2text($e2));
+    }
 
     // -----------------------------------------------------
     // -----------------------------------------------------

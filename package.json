@@ -1,36 +1,37 @@
 {
-  "name": "P2PEG",
-  "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)",
-  "version": "0.3.0",
-  "author": "Dumitru Uzun <contact@duzun.me>",
-  "homepage": "https://github.com/duzun/P2PEG",
-  "keywords": [
-    "P2P",
-    "random",
-    "entropy",
-    "cryptography",
-    "javascript",
-    "PHP"
-  ],
-  "main": "P2PEG.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/duzun/P2PEG.git"
-  },
-  "engines": {},
-  "scripts": {
-    "test": "phpunit ./tests/TestP2PEG.php"
-    , "test-dev": "node tests/test_watcher.js"
-    , "test-watchr": "node phpunit-watchr ./tests"
-  },
-  "license": [
-    {
-      "type": "MIT",
-      "url": "http://github.com/duzun/P2PEG/raw/master/LICENSE"
-    }
-  ],
-  "devDependencies": {
-    "phpunit-watchr": "^0.4.0",
-    "watch": "^0.13.0"
+ "name": "P2PEG",
+ "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)",
+ "version": "0.3.1",
+ "author": "Dumitru Uzun <contact@duzun.me>",
+ "homepage": "https://github.com/duzun/P2PEG",
+ "keywords": [
+  "P2P",
+  "random",
+  "entropy",
+  "cryptography",
+  "javascript",
+  "PHP"
+ ],
+ "main": "P2PEG.js",
+ "repository": {
+  "type": "git",
+  "url": "https://github.com/duzun/P2PEG.git"
+ },
+ "engines": {},
+ "scripts": {
+  "bump-ver": "node bump-ver.js",
+  "test": "phpunit ./tests/TestP2PEG.php",
+  "test-dev": "node tests/test_watcher.js",
+  "test-watchr": "node phpunit-watchr ./tests"
+ },
+ "license": [
+  {
+   "type": "MIT",
+   "url": "http://github.com/duzun/P2PEG/raw/master/LICENSE"
   }
+ ],
+ "devDependencies": {
+  "phpunit-watchr": "^0.4.0",
+  "watch": "^0.13.0"
+ }
 }

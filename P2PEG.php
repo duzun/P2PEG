@@ -31,13 +31,13 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.3.0
+ *  @version 0.3.1
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    static $version = '0.3.0';
+    static $version = '0.3.1';
 
     // First start timestamp
     static $start_ts;
@@ -384,7 +384,7 @@ class P2PEG {
     public function dynEntropy($quick=true) {
         $_entr = array();
 
-        $_entr[$this->packInt((int)substr(microtime(), 2, 6))] = 'microtime';
+        $_entr[$this->packInt(+substr(microtime(), 2, 6))] = 'microtime';
         $_entr[$this->packInt(rand())] = 'rand';
 
         // Get some data from mt_rand()
@@ -397,10 +397,6 @@ class P2PEG {
         // System performance/load indicator
         $r = (microtime(true)-self::$start_ts)*1000;
         $_entr[$this->packFloat($r)] = 'delta';
-
-        if($this->debug) {
-            echo PHP_EOL; var_export(array(__FUNCTION__ => $_entr)); echo PHP_EOL;
-        }
 
         $_entr = implode('', array_keys($_entr));
         return $_entr;
@@ -456,11 +452,7 @@ class P2PEG {
             }
             else
             if($r = $this->env('REQUEST_TIME')) {
-                $_entr[$this->packInt((int)$r)] = 'rt';
-            }
-
-            if($this->debug) {
-                echo PHP_EOL; var_export(array(__FUNCTION__ => $_entr)); echo PHP_EOL;
+                $_entr[$this->packInt(+$r)] = 'rt';
             }
 
             $_entr = implode('', array_keys($_entr));
@@ -498,10 +490,6 @@ class P2PEG {
             }
 
             $_entr[$this->packFloat(self::$start_ts)] = 'start';
-
-            if($this->debug) {
-                echo PHP_EOL; var_export(array(__FUNCTION__ => $_entr)); echo PHP_EOL;
-            }
 
             $_entr = implode('', array_keys($_entr));
             $this->_serverEntropy = $_entr;
@@ -576,19 +564,13 @@ class P2PEG {
             if( false !== ($f = @fopen('/dev/random', 'r')) ) {
                 stream_set_blocking($f, 0);
                 if(false !== ($r = @fread($f, $len))) {
-                    if($this->debug) $r = $this->bin2text($r);
                     $_entr[$r] = '/dev/random';
                 }
                 fclose($f);
             }
 
             if($r = $this->filesystemEntropy()) {
-                if($this->debug) $r = $this->bin2text($r);
                 $_entr[$r] = 'fs';
-            }
-
-            if($this->debug) {
-                echo PHP_EOL; var_export(array(__FUNCTION__ => $_entr)); echo PHP_EOL;
             }
 
             $_entr = implode('', array_keys($_entr));
@@ -615,7 +597,6 @@ class P2PEG {
 
         // www.random.org
         if( false !== ($r = @file_get_contents($proto.'://www.random.org/cgi-bin/randbyte?format=f&nbytes=' . $len)) ) {
-            if($this->debug) $r = $this->bin2text($r);
             $_entr[$r] = 'random.org';
         }
         else
@@ -735,12 +716,12 @@ class P2PEG {
         $ip = explode('.', $ip);
         $hasNaN = false;
         foreach($ip as $i) {
-            $t = (int)($i=trim($i));
+            $t = +($i=trim($i));
             if ( !$t && strncmp($i, '0', 1) ) {
                 $hasNaN = true;
                 continue;
             }
-            $r .= chr($i & 0xFF);
+            $r .= chr($t & 0xFF);
         }
         if ( $hasNaN && !strlen($r) ) return false;
         return $r;
@@ -752,10 +733,10 @@ class P2PEG {
             $int = ltrim($int, '0.');
             if(strlen($int) > self::$int_len) {
                 $i = str_split($int, self::$int_len);
-                foreach($i as $v) $r .= $this->packInt((int)$v);
+                foreach($i as $v) $r .= $this->packInt(+$v);
                 return $r;
             }
-            $int = (float)$int;
+            $int = +$int;
         }
         // When $int is bigger then int32 (on x86 it is converted to float), shift cuts out some bits.
         // Split the number into 3 pieces of 24 bits ($int is a 53 bit precision double)
@@ -776,7 +757,10 @@ class P2PEG {
 
     public function packFloat($float) {
         $t = explode('.', $float, 2);
-        return count($t) == 2 ? $this->packInt($t[1].$t[0]).$this->packInt(strlen($t[1])) : $this->packInt($float);
+        return count($t) == 2
+            ? $this->packInt($t[1].$t[0]).$this->packInt(strlen($t[1]))
+            : $this->packInt($float)
+        ;
     }
 
     // -------------------------------------------------

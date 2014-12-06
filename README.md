@@ -1,7 +1,7 @@
 
 # Peer to Peer Entropy Generator
 ## or Random numbers generator with p2p seeding
-@version 0.3.0
+@version 0.3.1
 
 ## About
 
