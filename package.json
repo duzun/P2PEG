@@ -3,7 +3,7 @@
   "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)",
   "version": "0.3.0",
   "author": "Dumitru Uzun <contact@duzun.me>",
-  "homepage": "http://github.com/duzun/P2PEG",
+  "homepage": "https://github.com/duzun/P2PEG",
   "keywords": [
     "P2P",
     "random",
@@ -15,12 +15,13 @@
   "main": "P2PEG.js",
   "repository": {
     "type": "git",
-    "url": "http://github.com/duzun/P2PEG.git"
+    "url": "https://github.com/duzun/P2PEG.git"
   },
-  "engines": {
-  },
+  "engines": {},
   "scripts": {
-    "test": "phpu tests/TestP2PEG.php",
+    "test": "phpunit ./tests/TestP2PEG.php"
+    , "test-dev": "node tests/test_watcher.js"
+    , "test-watchr": "node phpunit-watchr ./tests"
   },
   "license": [
     {
@@ -29,5 +30,7 @@
     }
   ],
   "devDependencies": {
+    "phpunit-watchr": "^0.4.0",
+    "watch": "^0.13.0"
   }
 }
