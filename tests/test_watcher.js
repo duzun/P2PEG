@@ -3,10 +3,10 @@ var spawn = require('child_process').spawn;
 var watch = require('watch');
 var path  = require('path');
 
-var _to = null;
-var _delay = 300;
+var _to      = null;
+var _delay   = 300;
 var _running = null;
-var _dir = path.join(__dirname, '..');
+var _dir     = path.join(__dirname, '..');
 
 function run_test() {
     _to = null;
@@ -18,20 +18,27 @@ function run_test() {
 
     console.log('\n\x1b[36m --- Running PHPUnit ... ---\x1b[0m\n');
 
-    var pu = _running = spawn('phpu.cmd', ['tests/TestP2PEG.php']
+    _running = spawn(
+      'phpu.cmd'
+      , ['tests/TestP2PEG.php']
       , { cwd: _dir, env: process.env }
     );
 
-    // pu.stdout.pipe(console);
-    pu.stdout.on('data', function (data) {
-      console.log(data+'');
-    });
+    _running.stdout.pipe(process.stdout);
+    _running.stderr.pipe(process.stderr);
 
-    pu.stderr.on('data', function (data) {
-      console.error(data+'');
-    });
+    // Coult use on('data') instead of pipe(),
+    // but pipe() streams data as soon as available:
+    // var out = ''
+    // ,   err = ''
+    // ;
+    // _running.stdout.on('data', function (data) { out += data; });
+    // _running.stderr.on('data', function (data) { err += data; });
 
-    pu.on('close', function (code) {
+    _running.on('close', function (code) {
+      // out && console.log(out);
+      // err && console.log(err);
+
       // Have errors
       if ( code ) {
         console.log('\x1b[31mFAIL (%d)\x1b[0m', code);
@@ -58,7 +65,7 @@ watch.createMonitor(
   , {
     interval: _delay >>> 1
     , ignoreDotFiles: true
-    , ignoreDirectoryPattern: /node_modules|scripts/
+    , ignoreDirectoryPattern: /(node_modules|scripts)/
     , filter: function (f, stat) { return stat.isDirectory() || path.extname(f) === '.php'; }
   }
   , function (monitor) {

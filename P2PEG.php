@@ -200,9 +200,10 @@ class P2PEG {
      *  Hex encoded string
      */
     public function hex($len=NULL) {
-        $l = isset($len) ? $len / 2 : $len;
+        $l = isset($len) ? ($len+1) >> 1 : $len;
         $ret = $this->str($l);
-        return bin2hex($ret);
+        $ret = bin2hex($ret);
+        return !isset($len) || strlen($ret) == $len ? $ret : substr($ret, 0, $len);
     }
 
 
@@ -272,21 +273,23 @@ class P2PEG {
         // Seed if necessary
         while(!$rs_w || $rs_w == 0x464fffff) {
             /* must not be zero, nor 0x464fffff */
-            $rs_w = $this->int32() ^ $this->int32(); 
+            $rs_w = $this->int32() ^ $this->int32();
         }
         while(!$rs_z || $rs_z == 0x9068ffff) {
             /* must not be zero, nor 0x9068ffff */
             $rs_z = $this->int32() ^ $this->int32();
         }
 
-        $rs_z = 36969 * ($rs_z & 0xFFFF) + ($rs_z >> 16);
-        $rs_w = 18000 * ($rs_w & 0xFFFF) + ($rs_w >> 16);
+        $rs_z = 0x9069 * ($rs_z & 0xFFFF) + ($rs_z >> 16);
+        $rs_w = 0x4650 * ($rs_w & 0xFFFF) + ($rs_w >> 16);
         $ret = ($rs_z << 16) + $rs_w;  /* 32-bit result */
 
         $this->rs_w = $rs_w;
         $this->rs_z = $rs_z;
 
-        return $ret;
+        // handle overflow:
+        // in PHP at overflow (int32) -> (float)
+        return $ret | 0;
     }
 
     // -------------------------------------------------
@@ -607,10 +610,20 @@ class P2PEG {
 
         $t1 = microtime(true);
 
+        // HTTPS is better for security, but slower.
+        $proto = 'https';
+
         // www.random.org
-        if( false !== ($r = @file_get_contents('https://www.random.org/cgi-bin/randbyte?format=f&nbytes=' . $len)) ) {
+        if( false !== ($r = @file_get_contents($proto.'://www.random.org/cgi-bin/randbyte?format=f&nbytes=' . $len)) ) {
             if($this->debug) $r = $this->bin2text($r);
             $_entr[$r] = 'random.org';
+        }
+        else
+        // jsonlib.appspot.com
+        if ( false !== ($r = file_get_contents($proto.'://jsonlib.appspot.com/urandom?bytes='.$len)) ) {
+            $t = json_decode($r) and
+            $t = $t->urandom and $r = $t;
+            $_entr[$r] = 'jsonlib.appspot.com';
         }
 
         // @TODO: read from other P2PEG servers
@@ -618,10 +631,6 @@ class P2PEG {
         $delta = microtime(true) - $t1;
 
         $_entr[$this->packFloat($delta)] = 'delta';
-
-        if($this->debug) {
-            echo PHP_EOL; var_export(array(__FUNCTION__ => $_entr)); echo PHP_EOL;
-        }
 
         $_entr = implode('', array_keys($_entr));
 
@@ -650,8 +659,6 @@ class P2PEG {
         if($r = $this->networkEntropy(false)) {
             $_entr .= $r;
         }
-
-        // @TODO: read from other P2PEG servers
 
         // Don't waste the chance to seed our P2PEG with some extra entropy
         $autoseed and $this->seed($_entr);
@@ -726,8 +733,16 @@ class P2PEG {
     public function packIP4($ip) {
         $r = '';
         $ip = explode('.', $ip);
-        foreach($ip as $i) $r .= chr($i & 0xFF);
-        if($this->debug) $r = bin2hex($r);
+        $hasNaN = false;
+        foreach($ip as $i) {
+            $t = (int)($i=trim($i));
+            if ( !$t && strncmp($i, '0', 1) ) {
+                $hasNaN = true;
+                continue;
+            }
+            $r .= chr($i & 0xFF);
+        }
+        if ( $hasNaN && !strlen($r) ) return false;
         return $r;
     }
 
@@ -740,14 +755,22 @@ class P2PEG {
                 foreach($i as $v) $r .= $this->packInt((int)$v);
                 return $r;
             }
-            $int = (int)$int;
+            $int = (float)$int;
         }
+        // When $int is bigger then int32 (on x86 it is converted to float), shift cuts out some bits.
+        // Split the number into 3 pieces of 24 bits ($int is a 53 bit precision double)
+        if ( $int > PHP_INT_MAX + 1 ) {
+            $m = ~(-1<<((PHP_INT_SIZE-1)<<3));
+            return $this->packInt($int & $m) .
+                   $this->packInt(($int /= $m+1) & $m) .
+                   $this->packInt(($int / ($m+1)) | 0) ;
+        }
+
         $m = $int < 0 ? -1 : 0;
         while($int != $m) {
             $r .= chr($int & 0xFF);
             $int >>= 8;
         }
-        if($this->debug) $r = bin2hex($r);
         return $r;
     }
 

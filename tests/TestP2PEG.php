@@ -25,6 +25,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     static public $inst;
     static public $className = 'P2PEG';
     static public $testName;
+    static public $log = true;
 
     // Before any test
     static public function setUpBeforeClass() {
@@ -67,7 +68,6 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     // -----------------------------------------------------
     public function testInstanceMethod() {
         $o = call_user_func(array(self::$className, 'instance'));
-
         $this->assertContainsOnlyInstancesOf(
             self::$className
             , array($o)
@@ -76,35 +76,74 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     }
 
     // -----------------------------------------------------
-    public function testStr() {
-        $s1  = self::$inst->str();
-        $len = strlen($s1);
-        $s2  = self::$inst->str();
+    public function testBinTextConv() {
+        $str     = self::$inst->str();
+        $text    = self::$inst->bin2text($str);
+        $text2   = self::$inst->bin2text($text);
+        $untext2 = self::$inst->text2bin($text2);
+        $untext  = self::$inst->text2bin($untext2);
 
-        // echo PHP_EOL;
-        // echo " str(): ", self::$inst->bin2text($s1), PHP_EOL;
-
-        $this->assertNotEquals($s1, $s2, 'str() should return different result at each call');
-        $this->assertNotEmpty($s1, 'str() should never return empty result');
-        $this->assertNotEmpty($s2, 'str() should never return empty result');
-
-        $s1l = $len - 10; // less then $len, from begining
-        $s2l = 5;         // buffer has more data then we need
-        $s3l = 8;         // buffer has less data then we need
-        $s4l = 3*$len;    // buffer + seed more times
-        $s1 = self::$inst->str($s1l);
-        $s2 = self::$inst->str($s2l);
-        $s3 = self::$inst->str($s3l);
-        $s4 = self::$inst->str($s4l);
-
-        $this->assertNotEmpty($s1, "str({$s1l}) should never return empty result");
-        $this->assertNotEmpty($s2, 'str() should never return empty result');
-        $this->assertEquals(strlen($s1), $s1l, "str({$s1l}) returned different length: ".strlen($s1));
-        $this->assertEquals(strlen($s2), $s2l, "str({$s2l}) returned different length: ".strlen($s2));
-        $this->assertEquals(strlen($s3), $s3l, "str({$s3l}) returned different length: ".strlen($s3));
-        $this->assertEquals(strlen($s4), $s4l, "str({$s4l}) returned different length: ".strlen($s4));
-
+        $this->assertNotEquals($str, $text);
+        $this->assertNotEquals($text, $text2);
+        $this->assertEquals($str, $untext);
+        $this->assertEquals($text, $untext2);
     }
+
+    // -----------------------------------------------------
+    public function testPackIP4() {
+        $o = self::$inst;
+
+        $this->assertEquals($o->packIP4('not a number at all'), false);
+        $this->assertEquals($o->packIP4('N.a.N.with.dots'), false);
+        $this->assertEquals($o->packIP4('24.is.a.number.like.87.is'), "\x18\x57");
+        $this->assertEquals($o->packIP4('1.0'), "\x01\x00");
+        $this->assertEquals($o->packIP4('127.0.255.450'), "\x7F\x00\xFF\xC2");
+        $this->assertEquals($o->packIP4('1.2.3.4.5.6'), "\x01\x02\x03\x04\x05\x06");
+        $this->assertEquals(substr($o->packIP4(M_PI), 0,1), "\x03");
+        $this->assertEquals($o->packIP4(3.141), "\x03\x8D");
+
+        $this->assertEquals(
+            $o->packIP4('127.128.255.0.127.128.255.0')
+            , "\x7F\x80\xff\x00\x7F\x80\xff\x00"
+        );
+    }
+
+    public function testPackInt() {
+        $o = self::$inst;
+
+        $this->assertEquals($o->packInt(0), '', 'packInt(0) should return ""');
+        $this->assertEquals($o->packInt(-1), '', 'packInt(-1) should return ""');
+        $this->assertEquals($o->packInt(0x1FFFFFFFFFFFFF), "\xFF\xFF\xFF\xFF\xFF\xFF\x1F", 'packInt(0x1FFFFFFFFFFFFF) should handle numbers bigger then int32');
+        if ( PHP_INT_SIZE == 4 ) {
+            // self::log(dechex((PHP_INT_MAX*2)+1));
+            // self::log(dechex(0xFFFFFFFF));
+            $this->assertEquals($o->packInt(0xFFFFFFFF), "\xFF\xFF\xFF\xFF", 'packInt(0xFFFFFFFF) should handle max unsigned int32');
+        }
+
+        $this->assertEquals($o->packInt(1234567890), "\xd2\x02\x96\x49");
+        $this->assertEquals($o->packInt(PHP_INT_MAX), str_repeat("\xFF", PHP_INT_SIZE-1)."\x7F");
+
+        $longStrNumber = '1234567890123456789012345678901234567890';
+        $bin = $o->packInt($longStrNumber);
+        $int_len = round(PHP_INT_SIZE * log10(256));
+
+        $this->assertNotEmpty($bin);
+        $this->assertGreaterThan(strlen($longStrNumber) / $int_len * PHP_INT_SIZE - 1, strlen($bin));
+
+        $b123 = $o->packInt(12345);
+        $this->assertEquals($b123, $o->packInt(12345.6789));
+        $this->assertEquals($b123, $o->packInt('12345.6789'));
+    }
+
+    public function testPackFloat() {
+        $o = self::$inst;
+
+        $r = (float)rand() / getrandmax() * 0xFFFFFFFF;
+        $b = $o->packInt($r);
+        $this->assertEquals($o->packFloat($r|0), $b);
+        $this->assertNotEquals($o->packFloat($r), $b);
+    }
+
 
     // -----------------------------------------------------
     public function testInt() {
@@ -113,7 +152,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $int2 = self::$inst->int();
         $s1 = '0x'.dechex($int1);
         $s2 = '0x'.dechex($int2);
-        self::log('int()   -> ', $s1. ', int()   -> ', $s2);
+        self::log("int()\t->", $s1. ",\tint()\t->", $s2);
 
         $this->assertEquals(is_int($int1), true, 'int() should return (int)');
         $this->assertEquals(is_int($int2), true, 'int() should return (int)');
@@ -138,7 +177,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $intA2 = self::$inst->int16();
         $s1 = '0x'.dechex($intA1);
         $s2 = '0x'.dechex($intA2);
-        self::log('int16() -> ', $s1. ', int16() -> ', $s2);
+        self::log("int16()\t->", $s1. ",\tint16()\t->", $s2);
 
         $this->assertEquals(is_int($intA1), true, 'int16() should return (int)');
         $this->assertEquals(is_int($intA2), true, 'int16() should return (int)');
@@ -152,32 +191,78 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $intB2 = self::$inst->int32();
         $s1 = '0x'.dechex($intB1);
         $s2 = '0x'.dechex($intB2);
-        self::log('int32() -> ', $s1. ', int32() -> ', $s2);
+        self::log("int32()\t->", $s1. ",\tint32()\t->", $s2);
 
         $this->assertEquals(is_int($intB1), true, 'int32() should return (int)');
         $this->assertEquals(is_int($intB2), true, 'int32() should return (int)');
         $this->assertNotEquals($intB2, $intB1, 'int32() should return different numbers');
         $m = (-1<<(2<<3));
-        $this->assertNotEmpty($intB1 & $m, "int32() should not return less then 2 bytes: $intB1 ".dechex($intA1));
-        $this->assertNotEmpty($intB2 & $m, "int32() should not return less then 2 bytes: $intB2 ".dechex($intA2));
+        $this->assertNotEmpty($intB1 & $m, "int32() should not return less then 2 bytes: $intB1 ".dechex($intB1));
+        $this->assertNotEmpty($intB2 & $m, "int32() should not return less then 2 bytes: $intB2 ".dechex($intB2));
+
+        // rand32()
+        $intC1 = self::$inst->rand32();
+        $intC2 = self::$inst->rand32();
+        $s1 = '0x'.dechex($intC1);
+        $s2 = '0x'.dechex($intC2);
+        self::log("rand32() ->", $s1. ",\trand32() ->", $s2);
+
+        $this->assertEquals(is_int($intC1), true, 'rand32() should return (int) '.gettype($intC1));
+        $this->assertEquals(is_int($intC2), true, 'rand32() should return (int) ');
+        $this->assertNotEquals($intC2, $intC1, 'rand32() should return different numbers');
+        $m = (-1<<(2<<3));
+        $this->assertNotEmpty($intC1 & $m, "rand32() should not return less then 2 bytes: $intC1 ".dechex($intC1));
+        $this->assertNotEmpty($intC2 & $m, "rand32() should not return less then 2 bytes: $intC2 ".dechex($intC2));
+    }
+
+    // -----------------------------------------------------
+    public function testStr() {
+        $s1  = self::$inst->str();
+        $s2  = self::$inst->str();
+        $len = strlen($s2);
+
+        // self::log("str() =", substr($s1, 0, 48). '...');
+        self::log('strlen(str()) =', $len);
+
+        $this->assertNotEquals($s1, $s2, 'str() should return different result at each call');
+        $this->assertNotEmpty($s1, 'str() should never return empty result');
+        $this->assertNotEmpty($s2, 'str() should never return empty result');
+        $this->assertNotEmpty(preg_match('/[^\x08-\x80]/', $s2), 'str() should have non-ASCII chars');
+
+        $s1l = $len - 10; // less then $len, from begining
+        $s2l = 5;         // buffer has more data then we need
+        $s3l = 8;         // buffer has less data then we need
+        $s4l = 3*$len;    // buffer + seed more times
+        $s1 = self::$inst->str($s1l);
+        $s2 = self::$inst->str($s2l);
+        $s3 = self::$inst->str($s3l);
+        $s4 = self::$inst->str($s4l);
+
+        $this->assertNotEmpty($s1, "str({$s1l}) should never return empty result");
+        $this->assertNotEmpty($s2, 'str() should never return empty result');
+        $this->assertEquals(strlen($s1), $s1l, "str({$s1l}) returned different length: ".strlen($s1));
+        $this->assertEquals(strlen($s2), $s2l, "str({$s2l}) returned different length: ".strlen($s2));
+        $this->assertEquals(strlen($s3), $s3l, "str({$s3l}) returned different length: ".strlen($s3));
+        $this->assertEquals(strlen($s4), $s4l, "str({$s4l}) returned different length: ".strlen($s4));
     }
 
     // -----------------------------------------------------
     public function testText() {
         $s1  = self::$inst->text();
-        $len = strlen($s1);
         $s2  = self::$inst->text();
+        $len = strlen($s2);
 
-        self::log("text() =", substr($s1, 0, 50). '...');
+        self::log("text() =", substr($s2, 0, 48). '...');
         self::log('strlen(text()) =', $len);
 
         $this->assertNotEquals($s1, $s2, 'text() should return different result at each call');
         $this->assertNotEmpty($s1, 'text() should never return empty result');
         $this->assertNotEmpty($s2, 'text() should never return empty result');
+        $this->assertNotEmpty(preg_match("/^[a-zA-Z0-9_\\/\\+\\-]+$/", $s1), 'text() should be b64 encoded');
 
         $s1l = $len - 10; // less then $len, from begining
-        $s2l = 5;         // buffer has more data then we need
-        $s3l = 8;         // buffer has less data then we need
+        $s2l = 13;
+        $s3l = 22;
         $s4l = 3*$len;    // buffer + seed more times
         $s1 = self::$inst->text($s1l);
         $s2 = self::$inst->text($s2l);
@@ -192,6 +277,36 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $this->assertEquals(strlen($s4), $s4l, "text({$s4l}) returned different length: ".strlen($s4));
     }
 
+    // -----------------------------------------------------
+    public function testHex() {
+        $s1  = self::$inst->hex();
+        $s2  = self::$inst->hex();
+        $len = strlen($s2);
+
+        self::log("hex() =", substr($s2, 0, 48). '...');
+        self::log('strlen(hex()) =', $len);
+
+        $this->assertNotEquals($s1, $s2, 'hex() should return different result at each call');
+        $this->assertNotEmpty($s1, 'hex() should never return empty result');
+        $this->assertNotEmpty($s2, 'hex() should never return empty result');
+        $this->assertNotEmpty(preg_match("/^[a-fA-F0-9]+$/", $s1), 'hex() should have only hex digits');
+
+        $s1l = $len - 10; // less then $len, from begining
+        $s2l = 11;
+        $s3l = 16;
+        $s4l = 3*$len;    // buffer + seed more times
+        $s1 = self::$inst->hex($s1l);
+        $s2 = self::$inst->hex($s2l);
+        $s3 = self::$inst->hex($s3l);
+        $s4 = self::$inst->hex($s4l);
+
+        $this->assertNotEmpty($s1, "hex({$s1l}) should never return empty result");
+        $this->assertNotEmpty($s2, 'hex() should never return empty result');
+        $this->assertEquals(strlen($s1), $s1l, "hex({$s1l}) returned different length: ".strlen($s1));
+        $this->assertEquals(strlen($s2), $s2l, "hex({$s2l}) returned different length: ".strlen($s2));
+        $this->assertEquals(strlen($s3), $s3l, "hex({$s3l}) returned different length: ".strlen($s3));
+        $this->assertEquals(strlen($s4), $s4l, "hex({$s4l}) returned different length: ".strlen($s4));
+    }
 
     // -----------------------------------------------------
     public function testHash() {
@@ -211,7 +326,6 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     }
 
     // -----------------------------------------------------
-
     public function testStateFile() {
         self::$inst->state();
         $this->assertNotEmpty(self::$inst->state_file, '$state_file is empty');
@@ -225,8 +339,21 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     public function testSeed() {
         $s1   = self::$inst->state();
         $e    = self::$inst->hash($s1 . __FUNCTION__, true);
-        // Uncomment next line to use P2P seeding:
-        // $e    = file_get_contents('https://duzun.me/entropy/str/'.self::$inst->bin2text($e));
+        $bytes = 64; // for network seeding
+
+        // Uncomment next lines to use P2P seeding:
+        // Note: HTTPS is better for security, but it is too slow. Use HTTP for tests.
+
+        // $e = file_get_contents('https://duzun.me/entropy/str/'.self::$inst->bin2text($e));
+        // self::log('e', self::$inst->bin2text($e));
+
+        // $e = file_get_contents('https://jsonlib.appspot.com/urandom?bytes='.$bytes);
+        // $t = json_decode($e) and $t = $t->urandom and $e = $t;
+        // self::log('e', self::$inst->bin2text($e));
+
+        // $e = file_get_contents('http://www.random.org/cgi-bin/randbyte?format=f&nbytes='.$bytes);
+        // self::log('e', self::$inst->bin2text($e));
+
         $seed = self::$inst->seed($e);
         $s2   = self::$inst->state();
 
@@ -238,6 +365,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     // -----------------------------------------------------
     // -----------------------------------------------------
     static function log() {
+        if ( empty(self::$log) ) return;
         static $idx = 0;
         static $lastTest;
         if ( $lastTest != self::$testName ) {
