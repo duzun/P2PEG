@@ -284,7 +284,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $this->assertNotEmpty($s2, 'text() should never return empty result');
         $this->assertNotEmpty(preg_match("/^[a-zA-Z0-9_\\/\\+\\-]+$/", $s1), 'text() should be b64 encoded');
 
-        $s1l = $len - 10; // less then $len, from begining
+        $s1l = $len - 16; // less then $len, from begining
         $s2l = 13;
         $s3l = 22;
         $s4l = 3*$len;    // buffer + seed more times
@@ -315,7 +315,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $this->assertNotEmpty($s2, 'hex() should never return empty result');
         $this->assertNotEmpty(preg_match("/^[a-fA-F0-9]+$/", $s1), 'hex() should have only hex digits');
 
-        $s1l = $len - 10; // less then $len, from begining
+        $s1l = $len - 14; // less then $len, from begining
         $s2l = 11;
         $s3l = 16;
         $s4l = 3*$len;    // buffer + seed more times

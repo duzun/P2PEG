@@ -203,7 +203,10 @@ class P2PEG {
         $l = isset($len) ? ($len+1) >> 1 : $len;
         $ret = $this->str($l);
         $ret = bin2hex($ret);
-        return !isset($len) || strlen($ret) == $len ? $ret : substr($ret, 0, $len);
+        return !isset($len) || strlen($ret) == $len 
+            ? $ret
+            : substr($ret, 0, $len)
+        ;
     }
 
 
