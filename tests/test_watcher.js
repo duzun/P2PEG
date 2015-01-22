@@ -19,8 +19,8 @@ function run_test() {
     console.log('\n\x1b[36m --- Running PHPUnit ... ---\x1b[0m\n');
 
     _running = spawn(
-      'phpu.cmd'
-      , ['tests/TestP2PEG.php']
+      'php'
+      , ['tests/phpunit.phar', 'tests/']
       , { cwd: _dir, env: process.env }
     );
 
