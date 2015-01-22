@@ -11,4 +11,4 @@ matrix:
     allow_failures:
         - php: hhvm
 
-script: phpunit tests/TestP2PEG.php
+script: phpunit tests/
