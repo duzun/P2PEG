@@ -20,7 +20,7 @@
  "engines": {},
  "scripts": {
   "bump-ver": "node bump-ver.js",
-  "test": "phpunit ./tests/TestP2PEG.php",
+  "test": "phpunit ./tests/",
   "test-dev": "node tests/test_watcher.js",
   "test-watchr": "node phpunit-watchr ./tests"
  },
