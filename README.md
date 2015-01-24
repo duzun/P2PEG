@@ -1,7 +1,6 @@
-
 # Peer to Peer Entropy Generator
 ## or Random numbers generator with p2p seeding
-@version 0.3.1
+@version 0.3.1  [![Build Status](https://travis-ci.org/duzun/P2PEG.svg?branch=master)](https://travis-ci.org/duzun/P2PEG)
 
 ## About
 
