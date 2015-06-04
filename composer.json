@@ -1,5 +1,6 @@
 {
   "name": "duzun/p2peg",
+  "type": "library",
   "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)",
   "version": "0.3.1",
   "author": {
@@ -20,10 +21,8 @@
     "type": "git",
     "url": "https://github.com/duzun/P2PEG.git"
   },
-  "license": [
-    {
-      "type": "MIT",
-      "url": "http://github.com/duzun/P2PEG/raw/master/LICENSE"
-    }
-  ]
+  "license": "MIT",
+  "require": {
+    "php": ">=5.3.0"
+  }
 }
