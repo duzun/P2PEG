@@ -2,11 +2,17 @@
 var spawn = require('child_process').spawn;
 var watch = require('watch');
 var path  = require('path');
+var fs    = require('fs');
+var http  = require('https');
 
 var _to      = null;
 var _delay   = 300;
 var _running = null;
 var _dir     = path.join(__dirname, '..');
+var _test_dir = path.join(_dir, 'tests');
+var _phpunit_url = 'https://phar.phpunit.de/phpunit.phar';
+var _phpunit_path = path.join(__dirname, 'phpunit.phar');
+
 
 function run_test() {
     _to = null;
@@ -18,11 +24,17 @@ function run_test() {
 
     console.log('\n\x1b[36m --- Running PHPUnit ... ---\x1b[0m\n');
 
-    _running = spawn(
-      'php'
-      , ['tests/phpunit.phar', 'tests/']
-      , { cwd: _dir, env: process.env }
-    );
+    var args = [_phpunit_path];
+
+    var phpunit_xml = path.join(_test_dir, 'phpunit.xml');
+
+    if ( fs.existsSync(phpunit_xml) ) {
+        args.push('-c');
+        args.push(phpunit_xml);
+    }
+    args.push(_test_dir);
+
+    _running = spawn( 'php', args, { cwd: _dir, env: process.env } );
 
     _running.stdout.pipe(process.stdout);
     _running.stderr.pipe(process.stderr);
@@ -58,6 +70,23 @@ function run_test_async() {
     _to = setTimeout(run_test, _delay);
 }
 
+function check_phpunit_phar(cb) {
+    if ( !fs.existsSync(_phpunit_path) ) {
+        var file = fs.createWriteStream(_phpunit_path);
+        http.get(_phpunit_url, function(response) {
+            response.pipe(file);
+            response.on('end', function (err) {
+                cb(err);
+            });
+        });
+    }
+    else {
+        cb();
+    }
+}
+
+check_phpunit_phar(function () {
+
 run_test_async();
 
 watch.createMonitor(
@@ -82,6 +111,6 @@ watch.createMonitor(
     // monitor.stop(); // Stop watching
   }
 );
-
+});
 
 

@@ -1,0 +1,29 @@
+{
+  "name": "duzun/p2peg",
+  "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)",
+  "version": "0.3.1",
+  "author": {
+    "name": "Dumitru Uzun",
+    "email": "contact@duzun.me",
+    "url": "http://DUzun.Me/"
+  },
+  "homepage": "https://github.com/duzun/P2PEG",
+  "keywords": [
+    "P2P",
+    "random",
+    "entropy",
+    "cryptography",
+    "javascript",
+    "PHP"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/duzun/P2PEG.git"
+  },
+  "license": [
+    {
+      "type": "MIT",
+      "url": "http://github.com/duzun/P2PEG/raw/master/LICENSE"
+    }
+  ]
+}
