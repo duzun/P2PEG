@@ -1,5 +1,5 @@
 {
-  "name": "P2PEG",
+  "name": "p2peg.php",
   "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)",
   "version": "0.3.1",
   "author": {
