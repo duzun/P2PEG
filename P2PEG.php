@@ -31,19 +31,19 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.3.1
+ *  @version 0.3.2
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    static $version = '0.3.1';
+    public static $version = '0.3.2';
 
     // First start timestamp
-    static $start_ts;
+    public static $start_ts;
 
     // Singleton instance
-    static protected $instance;
+    protected static $instance;
 
     /// Path to a file where to store state data
     public $state_file;
@@ -76,10 +76,10 @@ class P2PEG {
     private $_l = 0;  // available (unused) length
 
     // How many degimal digits fit in one int
-    static protected $int_len;
+    protected static $int_len;
     // -------------------------------------------------
     /// Get the singleton instance
-    static function instance($secret=NULL) {
+    public static function instance($secret=NULL) {
         if(!isset(self::$instance)) {
             self::$instance = new self($secret);
         }

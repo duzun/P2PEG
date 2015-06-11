@@ -87,30 +87,30 @@ function check_phpunit_phar(cb) {
 
 check_phpunit_phar(function () {
 
-run_test_async();
+    run_test_async();
 
-watch.createMonitor(
-  _dir
-  , {
-    interval: _delay >>> 1
-    , ignoreDotFiles: true
-    , ignoreDirectoryPattern: /(node_modules|scripts)/
-    , filter: function (f, stat) { return stat.isDirectory() || path.extname(f) === '.php'; }
-  }
-  , function (monitor) {
-    // monitor.files['/home/mikeal/.zshrc'] // Stat object for my zshrc.
-    monitor.on("created", function (f, stat) {
-      run_test_async()
-    })
-    monitor.on("changed", function (f, curr, prev) {
-      run_test_async()
-    })
-    monitor.on("removed", function (f, stat) {
-      run_test_async()
-    })
-    // monitor.stop(); // Stop watching
-  }
-);
+    watch.createMonitor(
+      _dir
+      , {
+        interval: _delay >>> 1
+        , ignoreDotFiles: true
+        , ignoreDirectoryPattern: /(node_modules|scripts|tools)/
+        , filter: function (f, stat) { return stat.isDirectory() || path.extname(f) === '.php'; }
+      }
+      , function (monitor) {
+        // monitor.files['/home/mikeal/.zshrc'] // Stat object for my zshrc.
+        monitor.on("created", function (f, stat) {
+          run_test_async()
+        })
+        monitor.on("changed", function (f, curr, prev) {
+          run_test_async()
+        })
+        monitor.on("removed", function (f, stat) {
+          run_test_async()
+        })
+        // monitor.stop(); // Stop watching
+      }
+    );
 });
 
 
