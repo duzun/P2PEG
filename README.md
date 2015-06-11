@@ -8,7 +8,7 @@
 
 **Node**: There is a JavaScript version of this library under development [p2peg.js](https://github.com/duzun/p2peg.js).
 
-This class uses a combination of sources of entropy to generate random data as unpredictable as posible.
+This class uses a combination of sources of entropy to generate random data as unpredictable as possible.
 The key concept is sharing of random data between peers, where both peers benefit from the request.
 
 Internally each peer generates random data using some system data, server performance/load, some [PRNGs](http://en.wikipedia.org/wiki/Pseudorandom_number_generator) (Pseudo Random Number Generators), timing and client supplied data.
