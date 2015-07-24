@@ -67,12 +67,14 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
 
     // -----------------------------------------------------
     public function testInstanceMethod() {
-        $o = call_user_func(array(self::$className, 'instance'));
-        $this->assertContainsOnlyInstancesOf(
-            self::$className
-            , array($o)
-            , self::$className.'::instance() returns an object'
-        );
+        $className = self::$className;
+        $o = call_user_func(array($className, 'instance'));
+        $this->assertInstanceOf($className, $o, "{$className}::instance() doesn't return and instance of {$className}");
+        // $this->assertContainsOnlyInstancesOf(
+            // $className
+            // , array($o)
+            // , $className.'::instance() returns an object'
+        // );
     }
 
     // -----------------------------------------------------
