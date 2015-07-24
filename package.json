@@ -14,7 +14,10 @@
     "entropy",
     "cryptography",
     "javascript",
-    "PHP"
+    "PHP",
+    "RNG",
+    "PRNG",
+    "seed"
   ],
   "files": [
     "P2PEG.php",
@@ -45,15 +48,14 @@
     ]
   },
   "devDependencies": {
-    "phpunit-watchr": "^0.4.x",
     "watch": "^0.13.x",
     "verup": "*"
   },
   "scripts": {
     "verup": "node ./node_modules/verup",
+    "version": "node ./node_modules/verup 0",
     "apigen": "php ./tools/apigen.phar generate -d ./docs --template-theme bootstrap -s ./P2PEG.php",
-    "test": "phpunit ./tests/",
-    "test-dev": "node ./tools/test_watcher.js",
-    "test-watchr": "node ./node_modules/phpunit-watchr ./tests"
+    "test": "php ./tools/phpunit.phar ./tests/",
+    "test-dev": "node ./tools/test_watcher.js"
   }
 }

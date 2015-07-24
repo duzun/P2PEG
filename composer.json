@@ -8,6 +8,17 @@
     "email": "contact@duzun.me",
     "url": "http://DUzun.Me/"
   },
+  "main": "P2PEG.php",
+  "autoload": {
+    "classmap": [
+      "P2PEG.php"
+    ]
+  },
+  "support": {
+    "email": "contact@duzun.me",
+    "issues": "https://github.com/duzun/P2PEG/issues",
+    "source": "https://github.com/duzun/P2PEG"
+  },
   "homepage": "https://github.com/duzun/P2PEG",
   "keywords": [
     "P2P",
@@ -15,11 +26,23 @@
     "entropy",
     "cryptography",
     "javascript",
-    "PHP"
+    "PHP",
+    "RNG",
+    "PRNG",
+    "seed"
   ],
   "repository": {
     "type": "git",
     "url": "https://github.com/duzun/P2PEG.git"
+  },
+  "archive": {
+    "exclude": [
+      "/tests",
+      "/tools",
+      "/docs",
+      "/scripts",
+      "/.*"
+    ]
   },
   "license": "MIT",
   "require": {
