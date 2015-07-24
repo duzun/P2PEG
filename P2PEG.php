@@ -111,8 +111,11 @@ class P2PEG {
         if(!$sf) $sf = $this->state_file;
         if(!$sf) return false; // No where to save
 
+        static $oldPHP;
+        isset($oldPHP) or $oldPHP = version_compare(PHP_VERSION, '5.3.0') < 0;
         // If meanwhile state file changed, don't loose that entropy
-        clearstatcache(true, $sf);
+        $oldPHP ? clearstatcache() : clearstatcache(true, $sf);
+
         $flags = 1;
         if(@filemtime($sf) != $this->_state_mtime) {
             $flags |= FILE_APPEND;
@@ -203,7 +206,7 @@ class P2PEG {
         $l = isset($len) ? ($len+1) >> 1 : $len;
         $ret = $this->str($l);
         $ret = bin2hex($ret);
-        return !isset($len) || strlen($ret) == $len 
+        return !isset($len) || strlen($ret) == $len
             ? $ret
             : substr($ret, 0, $len)
         ;
