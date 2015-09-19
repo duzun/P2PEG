@@ -862,7 +862,7 @@ class P2PEG {
      */
     function do_flock($fp, $lock, $timeout_ms=384) {
         $l = flock($fp, $lock);
-        if(!$l && ($lock & LOCK_UN) != LOCK_UN && ($lock & LOCK_NB) != LOCK_NB ) {
+        if( !$l && ($lock & LOCK_UN) != LOCK_UN ) {
             $st = microtime(true);
             $m = min( 1e3, $timeout_ms*1e3);
             $n = min(64e3, $timeout_ms*1e3);
@@ -878,19 +878,22 @@ class P2PEG {
     }
 
     function flock_put_contents($fn, $cnt, $block=false) {
-       // return file_put_contents($fn, $cnt, $block & FILE_APPEND);
-       $ret = false;
-       if( $f = fopen($fn, 'c+') ) {
-           $app = $block & FILE_APPEND and $block ^= $app;
-           if( $block ? $this->do_flock($f, LOCK_EX) : flock($f, LOCK_EX | LOCK_NB) ) {
-              if(is_array($cnt) || is_object($cnt)) $cnt = serialize($cnt);
-              if($app) fseek($f, 0, SEEK_END);
-              if(false !== ($ret = fwrite($f, $cnt))) ftruncate($f, ftell($f));
-              flock($f, LOCK_UN);
-           }
-           fclose($f);
-       }
-       return $ret;
+        // return file_put_contents($fn, $cnt, $block & FILE_APPEND);
+        $ret = false;
+        if( $f = fopen($fn, 'c+') ) {
+            $app = $block & FILE_APPEND and $block ^= $app;
+            if( $block ? $this->do_flock($f, LOCK_EX) : flock($f, LOCK_EX | LOCK_NB) ) {
+                if(is_array($cnt) || is_object($cnt)) $cnt = serialize($cnt);
+                if($app) fseek($f, 0, SEEK_END);
+                if(false !== ($ret = fwrite($f, $cnt))) {
+                    fflush($f);
+                    ftruncate($f, ftell($f));
+                }
+                flock($f, LOCK_UN);
+            }
+            fclose($f);
+        }
+        return $ret;
     }
 
     function flock_get_contents($fn, $block=false) {
