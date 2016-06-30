@@ -31,13 +31,13 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.3.2
+ *  @version 0.3.3
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    public static $version = '0.3.2';
+    public static $version = '0.3.3';
 
     // First start timestamp
     public static $start_ts;
@@ -59,9 +59,11 @@ class P2PEG {
     // If true, call seedRandomDev() on __destruct
     public $seedSys = true;
 
-    // Seed for rand32() method
-    public $rs_z = 0;
-    public $rs_w = 0;
+    // Seed for rand32() & rand64() methods
+    public $rs00 = 0;
+    public $rs01 = 0;
+    public $rs10 = 0;
+    public $rs11 = 0;
 
     // State values
     private   $_state;
@@ -268,36 +270,89 @@ class P2PEG {
      *  Pseudo-random 32bit integer numbers generator.
      *
      *  This function produces same result as $this->int32(),
-     *  but is much faster at generating long strings of random numbers.
+     *  but is much faster at generating long strings of random numbers,
+     *  and uses less entropy as well.
      *
      *  @source http://en.wikipedia.org/wiki/Random_number_generation
+     *
+     *  @return  (int)random
      */
     public function rand32() {
-        $rs_w = $this->rs_w;
-        $rs_z = $this->rs_z;
+        $rs10 = $this->rs10;
+        $rs00 = $this->rs00;
 
         // Seed if necessary
-        while(!$rs_w || $rs_w == 0x464fffff) {
+        while(!$rs10 || $rs10 == 0x464fffff) {
             /* must not be zero, nor 0x464fffff */
-            $rs_w = $this->int32() ^ $this->int32();
+            $rs10 = $this->int32() ^ $this->int32();
         }
-        while(!$rs_z || $rs_z == 0x9068ffff) {
+        while(!$rs00 || $rs00 == 0x9068ffff) {
             /* must not be zero, nor 0x9068ffff */
-            $rs_z = $this->int32() ^ $this->int32();
+            $rs00 = $this->int32() ^ $this->int32();
         }
 
-        $rs_z = 0x9069 * ($rs_z & 0xFFFF) + ($rs_z >> 16);
-        $rs_w = 0x4650 * ($rs_w & 0xFFFF) + ($rs_w >> 16);
-        $ret = ($rs_z << 16) + $rs_w;  /* 32-bit result */
+        $rs00 = 0x9069 * ($rs00 & 0xFFFF) + ($rs00 >> 16);
+        $rs10 = 0x4650 * ($rs10 & 0xFFFF) + ($rs10 >> 16);
+        $ret = ($rs00 << 16) + $rs10;  /* 32-bit result */
 
-        $this->rs_w = $rs_w;
-        $this->rs_z = $rs_z;
+        $this->rs10 = $rs10;
+        $this->rs00 = $rs00;
 
         // handle overflow:
         // in PHP at overflow (int32) -> (float)
         return $ret | 0;
     }
 
+    // -------------------------------------------------
+    /**
+     *  Pseudo-random 64bit integer numbers generator.
+     *
+     *  @source  http://vigna.di.unimi.it/ftp/papers/xorshiftplus.pdf
+     *
+     *  @return (int)random
+     */
+    public function rand64() {
+        $s10 = $this->rs00;
+        $s11 = $this->rs01;
+        $s00 = $this->rs10;
+        $s01 = $this->rs11;
+
+        $m = 0xFFFFFFFF;
+
+        // Seed if necessary
+        while(!$s10 || !$s11) {
+            $s10 = $this->int32();
+            $s11 = $this->int32();
+        }
+        while(!$s00 || !$s01) {
+            $s00 = $this->int32();
+            $s01 = $this->int32();
+        }
+
+        $this->rs00 = $s00;
+        $this->rs01 = $s01;
+
+        // $s1 ^= $s1 << 23;
+        $s11 ^= ($s11 << 23) & $m | ($s10 >> 9);
+        $s10 ^= ($s10 << 23) & $m;
+
+        // $s1 ^= $s1 >> 17;
+        $s10 ^= ($s11 << 15) & $m | ($s10 >> 17);
+        $s11 ^= $s11 >> 17;
+
+        // $s1 ^= $s0;
+        $s10 ^= $s00;
+        $s11 ^= $s01;
+
+        // $s1 ^= $s0 >> 26;
+        $s10 ^= ($s01 << 8) & $m | ($s00 >> 26);
+        $s11 ^= $s01 >> 26;
+
+        $this->rs10 = $s10;
+        $this->rs11 = $s11;
+
+        return (($this->rs01 + $this->rs11) << 32) + ($this->rs00 + $this->rs10);
+    }
     // -------------------------------------------------
     /**
      *  Generate and serve to client a random bitmap image.
@@ -320,8 +375,7 @@ class P2PEG {
         header("Content-type: image/png");
         $im = imagecreatetruecolor($width, $height) or die("Cannot Initialize new GD image stream");
         $white = imagecolorallocate($im, 255, 255, 255);
-
-        // @TODO: Check if $method is save to display to client
+        // @TODO: Check if $method is safe to display to client
         $g = $this->$meth();
         $iss = is_string($g); // string or int32
         if($iss) {

@@ -1,6 +1,6 @@
 # Peer to Peer Entropy Generator
 ## or Random numbers generator with p2p seeding
-@version 0.3.2  [![Build Status](https://travis-ci.org/duzun/P2PEG.svg?branch=master)](https://travis-ci.org/duzun/P2PEG)
+@version 0.3.3  [![Build Status](https://travis-ci.org/duzun/P2PEG.svg?branch=master)](https://travis-ci.org/duzun/P2PEG)
 
 [API Documentation](https://duzun.github.io/P2PEG/docs/)
 
@@ -66,10 +66,17 @@ Get some random string hex encoded
 $hex = $P2PEG->hex($length);
 ```
 
-Get a pseudo random 32bit integer - this method is faster then int32() for generating lots of numbers, but in turn it uses less entropy
+Get a pseudo random 32bit integer - this method is faster then int32() for generating lots of numbers, but in turn it uses less entropy (see [RNG](http://en.wikipedia.org/wiki/Random_number_generation)).
 
 ```php
 $rand_int = $P2PEG->rand32();
+```
+
+Get a pseudo random 64bit integer - this method is faster then int() for generating lots of numbers, but in turn it uses less entropy (see [xorshiftplus](http://vigna.di.unimi.it/ftp/papers/xorshiftplus.pdf) algorithm).
+
+
+```php
+$rand_long = $P2PEG->rand64();
 ```
 
 ## Advanced Usage
