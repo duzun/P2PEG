@@ -178,6 +178,3 @@ Each pear gets entropy and gives entropy at the same time with a simple GET requ
 
 5. Create a JavaScript version (in development [here](https://github.com/duzun/p2peg.js))
 
-
-
-[ ![Codeship Status for duzun/P2PEG](https://codeship.com/projects/74428c00-5ac0-0132-efa6-46545b4ba6c4/status)](https://codeship.com/projects/50410)
