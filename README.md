@@ -153,6 +153,7 @@ This method gathers some network entropy and server entropy and can be realy slo
 
 https://duzun.me/entropy
 
+![Randomness Visualisation](https://duzun.me/entropy/img)
 
 ## TODO
 
