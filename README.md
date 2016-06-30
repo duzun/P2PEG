@@ -136,6 +136,7 @@ This method helps to visually inspect a random number generator (RNG). It is not
 
 Examples:
 - https://duzun.me/entropy/img/rand32
+- https://duzun.me/entropy/img/rand64/64
 - https://duzun.me/entropy/img/str
 
 
