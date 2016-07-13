@@ -174,7 +174,7 @@ Each pear gets entropy and gives entropy at the same time with a simple GET requ
 
 3. Count the amount of entropy generated
 
-4. Test the quality of entropy
+4. Test the quality of entropy witth [TestU01](http://simul.iro.umontreal.ca/testu01/tu01.html)
 
 5. Create a JavaScript version (in development [here](https://github.com/duzun/p2peg.js))
 
