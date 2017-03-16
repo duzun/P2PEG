@@ -31,13 +31,13 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.3.3
+ *  @version 0.3.4
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    public static $version = '0.3.3';
+    public static $version = '0.3.4';
 
     // First start timestamp
     public static $start_ts;
@@ -544,6 +544,12 @@ class P2PEG {
                 $_entr[$t] = 1;
             }
 
+            if(function_exists('random_bytes')) {
+                $t = random_bytes(32) and
+                $_entr[$t] = 'random_bytes';
+            }
+            else
+            // mcrypt_create_iv() is Deprecated in PHP7.1 and replaced by random_bytes()
             if(function_exists('mcrypt_create_iv')) {
                 $t = mcrypt_create_iv(32) and
                 $_entr[$t] = 'mcrypt_create_iv';
