@@ -7,6 +7,7 @@
  */
 // -----------------------------------------------------
 require_once dirname(dirname(__FILE__)) . '/P2PEG.php';
+class_exists('PHPUnit_Framework_TestCase') or class_alias('PHPUnit\\Framework\\TestCase', 'PHPUnit_Framework_TestCase');
 // -----------------------------------------------------
 // Surogate class for testing, to access protected attributes of P2PEG
 class TestP2PEG4Tests extends P2PEG {
