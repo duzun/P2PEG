@@ -20,3 +20,5 @@ test-dev.cmd
 .grunt
 .lock-wscript
 *.bak
+
+/vendor

@@ -54,8 +54,8 @@
   "scripts": {
     "verup": "node ./node_modules/verup",
     "version": "node ./node_modules/verup 0",
-    "apigen": "php ./tools/apigen.phar generate -d ./docs --template-theme bootstrap -s ./P2PEG.php",
-    "test": "php ./tools/phpunit.phar ./tests/",
+    "apigen": "php vendor/bin/apigen generate -d ./docs --template-theme bootstrap -s ./P2PEG.php",
+    "test": "php vendor/bin/phpunit ./tests/",
     "test-dev": "node ./tools/test_watcher.js"
   }
 }
