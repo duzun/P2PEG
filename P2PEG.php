@@ -31,13 +31,13 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.3.4
+ *  @version 0.3.5
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    public static $version = '0.3.4';
+    public static $version = '0.3.5';
 
     // First start timestamp
     public static $start_ts;
@@ -782,7 +782,7 @@ class P2PEG {
         $ip = explode('.', $ip);
         $hasNaN = false;
         foreach($ip as $i) {
-            $t = +($i=trim($i));
+            $t = intval($i=trim($i));
             if ( !$t && strncmp($i, '0', 1) ) {
                 $hasNaN = true;
                 continue;
@@ -799,7 +799,7 @@ class P2PEG {
             $int = ltrim($int, '0.');
             if(strlen($int) > self::$int_len) {
                 $i = str_split($int, self::$int_len);
-                foreach($i as $v) $r .= $this->packInt(+$v);
+                foreach($i as $v) $r .= $this->packInt(intval($v));
                 return $r;
             }
             $int = +$int;

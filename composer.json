@@ -2,9 +2,9 @@
   "name": "duzun/p2peg",
   "type": "library",
   "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "minimum-stability": "RC",
-  "prefer-stable" : true,  
+  "prefer-stable": true,
   "author": {
     "name": "Dumitru Uzun",
     "email": "contact@duzun.me",
