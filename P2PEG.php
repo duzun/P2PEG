@@ -31,13 +31,13 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.4.1
+ *  @version 0.4.2
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    public static $version = '0.4.1';
+    public static $version = '0.4.2';
 
     // First start timestamp
     public static $start_ts;
@@ -264,6 +264,22 @@ class P2PEG {
         $r = 0;
         for(;$s--;) $r = ($r << 8) | ord(substr($src, $s, 1));
         return $r;
+    }
+
+    /**
+     * How many bytes are required to represent this integer?
+     *
+     * @param  int $int An integer
+     * @return int Number of not 0 bytes of $int
+     */
+    public function sizeOfInt($int) {
+        $m = -1 << ((PHP_INT_SIZE-1)<<3);
+        $c = PHP_INT_SIZE;
+        while(!($int & $m) && $c) {
+            --$c;
+            $m >>= 8;
+        }
+        return $c;
     }
 
 /* --- PRNGs ---------------------------------------------------------------- */
@@ -508,6 +524,89 @@ class P2PEG {
 
     // -------------------------------------------------
     /**
+     * WARNING! This is a very bad RNG! Here just as an example.
+     * See https://www.wikiwand.com/en/RANDU
+     *
+     * The only good part about this implementation is that the seed is random.
+     */
+    public function RANDU() {
+        $s = $this->_init_rs32(1);
+        $s = $s[0];
+        // return $this->rs[0] = ($s * 0x10003) & 0x7FFFFFFF;
+        return $this->rs[0] = (($s << 16) + ($s << 1) + $s) & 0x7FFFFFFF;
+    }
+
+    /**
+     * RANDU Deskewed a little bit, but still...
+     */
+    public function RANDU_Deskewed() {
+        return $this->Deskew_uniform_distribution('RANDU');
+    }
+
+    // -------------------------------------------------
+    /**
+     * De-sckew method to nomalize distribution of 0s and 1s.
+     *
+     * @param string $method A P2PEG method that produces (pseudo) random data
+     * @return int|string same type as $method
+     */
+    public function Deskew_uniform_distribution($method) {
+        $g = $this->call($method);
+
+        if ( $g === false ) return $g;
+
+        if ( is_int($g) ) {
+            $r = 0;
+            for($b = $c = $this->sizeOfInt($g) << 3; $c; $g = $this->call($method)) {
+                for($i=$b >> 1; $i-- && $c; ) {
+                    $x = $g & 3;
+                    $g >>= 2;
+                    switch($x) {
+                        case 1: // 0
+                            $r <<= 1;
+                            --$c;
+                        break;
+
+                        case 2: // 1
+                            $r <<= 1;
+                            $r |= 1;
+                            --$c;
+                        break;
+                    }
+                }
+            }
+            return $r;
+        }
+        else {
+            $s = '';
+            $b = strlen($g);
+            for($c = $b << 3, $r = 0; $c; $g = $this->call($method), $b = strlen($g)) {
+                for($l=0; $l < $b && $c; $l++) {
+                    $f = ord(substr($g, $l, 1));
+                    for($i=4; $i-- && $c; ) {
+                        $x = $f & 3;
+                        $f >>= 2;
+                        switch($x) {
+                            case 2: // 1
+                                $r |= 1;
+                            case 1: // 0
+                                --$c;
+                                if ( ($c & 7) == 0 ) {
+                                    $s .= chr($r);
+                                    $r = 0;
+                                }
+                                $r <<= 1;
+                            break;
+                        }
+                    }
+                }
+            }
+            return $s;
+        }
+    }
+
+    // -------------------------------------------------
+    /**
      *  Generate and serve to client a random bitmap image.
      *
      *  This method helps to visually inspect a random number generator (RNG).
@@ -525,11 +624,18 @@ class P2PEG {
      *
      */
     public function servImg($width=64, $height=64, $meth='rand32', $itemSize=NULL) {
+        $g = $this->call($meth);
+
+        if ( $g === false ) {
+            trigger_error(__METHOD__ . ': Wrong method called. '.implode(', ', (array)$meth));
+            echo 'Error';
+            return false;
+        }
+
         header("Content-type: image/png");
         $im = imagecreatetruecolor($width, $height) or die("Cannot Initialize new GD image stream");
         $white = imagecolorallocate($im, 255, 255, 255);
 
-        $g = $this->call($meth);
         $iss = is_string($g); // string or int32
         if($iss) {
             $p = strlen($g);
@@ -538,9 +644,10 @@ class P2PEG {
         }
         else {
             $r = $g;
-            $bitSize = empty($itemSize) ? 32 : $itemSize; // 4 bytes == 32 bits
+            $bitSize = empty($itemSize) ? max(32, $this->sizeOfInt($g) << 3) : $itemSize; // 4 bytes == 32 bits
         }
         $i = $bitSize;
+        header('X-Bit-Size: ' . $bitSize);
 
         $SIGN_BIT = -1<<(PHP_INT_SIZE<<3)-1;
 
@@ -575,16 +682,53 @@ class P2PEG {
     }
 
     // -------------------------------------------------
-    public function call($meth) {
+    public function call(&$meth) {
         // @TODO: Check if $method is safe to display to client
         if ( is_array($meth) ) {
             $g = NULL;
-            foreach($meth as $m) {
-                $g = isset($g) ? $g ^ $this->$m() : $this->$m();
+            foreach($meth as &$m) {
+                // if ( !strncmp($m, '\\', 1) && strpos($m, '\\', 1) ) {
+                //     $h = $m();
+                // }
+                // else {
+                    $h = $this->$m();
+                // }
+                if( is_int($h) ) {
+                    if ( is_string($g) ) {
+                        $g = $this->strxor($g, $this->packInt($h));
+                    }
+                    else {
+                        $g ^= $h;
+                    }
+                }
+                elseif ( is_string($h) ) {
+                    if ( !isset($g) ) {
+                        $g = $h;
+                    }
+                    else {
+                        if ( is_int($g) ) {
+                            $g = $this->packInt($g);
+                        }
+                        $g = $this->strxor($g, $h);
+                    }
+                }
+                else {
+                    // RNGs of this class return either string, or int
+                    return false;
+                }
             }
         }
         else {
-            $g = $this->$m();
+            // if ( !strncmp($meth, '\\', 1) && strpos($meth, '\\', 1) ) {
+            //     $g = $meth();
+            // }
+            // else {
+                $g = $this->$meth();
+            // }
+            if ( !is_int($g) && !is_string($g) ) {
+                // RNGs of this class return either string, or int
+                return false;
+            }
         }
 
         return $g;
