@@ -215,7 +215,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
 
         // rand32() family
         $m = (-1<<(2<<3));
-        foreach (['int32', 'rand32', 'xorShift32', 'xorShift128', 'xorwow'] as $i32) {
+        foreach (array('int32', 'rand32', 'xorShift32', 'xorShift128', 'xorwow') as $i32) {
             $intB1 = self::$inst->$i32();
             $intB2 = self::$inst->$i32();
             $s1 = '0x'.dechex($intB1);
@@ -231,7 +231,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
 
         // rand64() family
         $m = (-1<<24);
-        foreach (['rand64', 'xorShift128Plus', 'xorShift1024Star'] as $i64) {
+        foreach (array('rand64', 'xorShift128Plus', 'xorShift1024Star') as $i64) {
             $intC1 = self::$inst->$i64();
             $intC2 = self::$inst->$i64();
             $s1 = '0x'.dechex($intC1);

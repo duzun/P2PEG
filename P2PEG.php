@@ -60,7 +60,7 @@ class P2PEG {
     public $seedSys = true;
 
     // Seed for rand32(), rand64() and other PRNGs
-    public $rs = [];
+    public $rs = array();
 
     // State values
     private   $_state;
