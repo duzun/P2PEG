@@ -31,13 +31,13 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.3.5
+ *  @version 0.4.0
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    public static $version = '0.3.5';
+    public static $version = '0.4.0';
 
     // First start timestamp
     public static $start_ts;
@@ -51,7 +51,7 @@ class P2PEG {
     public $debug = false;
 
     /// Use first available hash alg from the list
-    public $hash = array('sha512', 'sha256', 'sha128', 'sha1', 'md5');
+    public $hash = array('sha512', 'sha256', 'sha128', 'sha1', 'md5', 'ripemd128', 'ripemd160');
 
     // Padding for HMAC-HASH
     private $_opad, $_ipad;
@@ -59,11 +59,8 @@ class P2PEG {
     // If true, call seedRandomDev() on __destruct
     public $seedSys = true;
 
-    // Seed for rand32() & rand64() methods
-    public $rs00 = 0;
-    public $rs01 = 0;
-    public $rs10 = 0;
-    public $rs11 = 0;
+    // Seed for rand32(), rand64() and other PRNGs
+    public $rs = [];
 
     // State values
     private   $_state;
@@ -89,13 +86,17 @@ class P2PEG {
     }
     // -------------------------------------------------
     /// @param (string)$secret - A secred string, should be unique on each installation (: http://xkcd.com/221/ :)
-    public function __construct($secret=',!8L_J:UW~l\'ACt:7c05!R9}~>yb!gPP=|(@FBny\'ao/&-\jVs') {
+    public function __construct($secret=NULL) {
         // parent::__construct();
         isset(self::$start_ts) or self::$start_ts = microtime(true);
-        $this->setSecret($secret);
         isset(self::$int_len) or self::$int_len = round(PHP_INT_SIZE * log10(256));
-
         $this->seedSys = !$this->isWindows();
+
+        // No secred key? Generate one!
+        if ( !isset($secret) ) {
+            $secret = $this->packFloat(self::$start_ts) . 'H{tCAD;](WS[v|\\0}0cgd/(*;1NUd_5trdB:Qmn8s5%,FK*Civ(&' . self::$version;
+        }
+        $this->setSecret($secret);
     }
 
     public function __destruct() {
@@ -265,6 +266,14 @@ class P2PEG {
         return $r;
     }
 
+/* --- PRNGs ---------------------------------------------------------------- */
+
+    protected function _init_rs32($len) {
+        $count = count($this->rs);
+        while($count < $len) $this->rs[$count++] = $this->int32();
+        return $this->rs;
+    }
+
     // -------------------------------------------------
     /**
      *  Pseudo-random 32bit integer numbers generator.
@@ -278,8 +287,8 @@ class P2PEG {
      *  @return  (int)random
      */
     public function rand32() {
-        $rs10 = $this->rs10;
-        $rs00 = $this->rs00;
+        $rs00 = @$this->rs[0];
+        $rs10 = @$this->rs[1];
 
         // Seed if necessary
         while(!$rs10 || $rs10 == 0x464fffff) {
@@ -295,8 +304,8 @@ class P2PEG {
         $rs10 = 0x4650 * ($rs10 & 0xFFFF) + ($rs10 >> 16);
         $ret = ($rs00 << 16) + $rs10;  /* 32-bit result */
 
-        $this->rs10 = $rs10;
-        $this->rs00 = $rs00;
+        $this->rs[0] = $rs00;
+        $this->rs[1] = $rs10;
 
         // handle overflow:
         // in PHP at overflow (int32) -> (float)
@@ -312,10 +321,13 @@ class P2PEG {
      *  @return (int)random
      */
     public function rand64() {
-        $s10 = $this->rs00;
-        $s11 = $this->rs01;
-        $s00 = $this->rs10;
-        $s01 = $this->rs11;
+        $rs = $this->rs;
+        count($rs) < 4 and $rs = $this->_init_rs32(4);
+
+        $s10 = $rs[0];
+        $s11 = $rs[1];
+        $s00 = $rs[2];
+        $s01 = $rs[3];
 
         $m = 0xFFFFFFFF;
 
@@ -329,8 +341,8 @@ class P2PEG {
             $s01 = $this->int32();
         }
 
-        $this->rs00 = $s00;
-        $this->rs01 = $s01;
+        $rs[0] = $s00;
+        $rs[1] = $s01;
 
         // $s1 ^= $s1 << 23;
         $s11 ^= ($s11 << 23) & $m | ($s10 >> 9);
@@ -348,11 +360,134 @@ class P2PEG {
         $s10 ^= ($s01 << 8) & $m | ($s00 >> 26);
         $s11 ^= $s01 >> 26;
 
-        $this->rs10 = $s10;
-        $this->rs11 = $s11;
+        $rs[2] = $s10;
+        $rs[3] = $s11;
 
-        return (($this->rs01 + $this->rs11) << 32) + ($this->rs00 + $this->rs10);
+        $this->rs = $rs;
+
+        return (($rs[1] + $rs[3]) << 32) | ($rs[0] + $rs[2]);
     }
+
+    /**
+     * Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs"
+     *
+     * @return int32
+     */
+    public function xorShift32() {
+        $x = @$this->rs[0];
+
+        // Seed if necessary
+        while(!$x) {
+            $x = $this->int32();
+        }
+
+        $x ^= $x << 13;
+        $x ^= $x >> 17;
+        $x ^= $x << 5;
+        return $this->rs[0] = $x;
+    }
+
+    /**
+     * Algorithm "xor128" from p. 5 of Marsaglia, "Xorshift RNGs"
+     *
+     * @return int32
+     */
+    public function xorShift128() {
+        count($this->rs) < 4 and $this->_init_rs32(4);
+
+        $t = array_splice($this->rs, 3, 1);
+        $s = $this->rs[0];
+
+        $t ^= $t[0] << 11;
+        $t ^= $t >> 8;
+
+        $t ^= $s;
+        $t ^= $s >> 19;
+
+        array_unshift($this->rs, $t);
+
+        return $t;
+    }
+
+    /**
+     * Algorithm "xorwow" from p. 5 of Marsaglia, "Xorshift RNGs"
+     *
+     * @note This generator is the default in Nvidia's CUDA toolkit.
+     *
+     * @period 2^160−2^32
+     *
+     * @return int32
+     */
+    public function xorwow() {
+        count($this->rs) < 4 and $this->_init_rs32(5);
+
+        $t = array_splice($this->rs, 3, 1);
+        $s = $this->rs[0];
+
+        $t ^= $t >> 2;
+        $t ^= $t << 1;
+
+        $t ^= $s;
+        $t ^= $s << 4;
+
+        array_unshift($this->rs, $t);
+
+        return $t + (@$this->rs[4] += 0x587c5);
+    }
+
+    // -------------------------------------------------
+    /**
+     * @period 2^1024 − 1
+     * passes BigCrush
+     *
+     * @return int64
+     */
+    public function xorShift1024Star() {
+        while(count($this->rs) < 16) {
+            $this->rs[] = $this->rand64(); // should use 64 bits per state value, not 32
+        }
+        static $p = 0;
+
+        $s0 = $this->rs[$p++];
+        $s1 = $this->rs[$p &= 15];
+        $s1 ^= $s1 << 31; // a
+        $s1 ^= $s1 >> 11; // b
+        $s1 ^= $s0 ^ ($s0 >> 30); // c
+        $this->rs[$p] = $s1;
+
+        // return ($s1 * 0x106689D45497FDB5); // this is a double in PHP :-(
+
+        // In PHP, if we multiply two bit int64 numbers, we get a double.
+        // In order to multiply int64 * int64 and get the result as int64,
+        // ignoring the overflow, we have to multiply int32 numbers.
+        // a * b = (ah*2^32 + al) * (bh*2^32 + bl) = ah*bh*2^64 + (ah*bl + al*bh)*2^32 + al*bl,
+        // where ah*bh*2^64 is the overflow.
+
+        $ls = $s1 & 0xFFFFFFFF;
+        $hs = ($s1 >> 32) & 0xFFFFFFFF;
+
+        $l = 0x5497FDB5;
+        $h = 0x106689D4;
+
+        return (($hs * $l + $ls * $h) << 32) | ($ls * $l);
+    }
+
+    /**
+     * @period 2^128-1
+     *
+     * @return int64
+     */
+    public function xorShift128Plus() {
+        $s = $this->_init_rs32(2);
+        $x = $s[0];
+        $y = $s[1];
+        $s[0] = $y;
+        $x ^= $x << 23; // a
+        $s[1] = $x ^ $y ^ ($x >> 17) ^ ($y >> 26); // b, c
+        $this->rs = $s;
+        return ($s[1] + $y) | 0;
+    }
+
     // -------------------------------------------------
     /**
      *  Generate and serve to client a random bitmap image.
@@ -420,7 +555,8 @@ class P2PEG {
         $size = 64;
         $l = strlen($key);
         if($size < $l) {
-            $key = hash('sha1', $key, true);
+            $this->_opad = $this->_ipad = NULL;
+            $key = $this->hash($key);
             if($key === FALSE) return $key;
             $l = strlen($key);
         }
@@ -760,16 +896,25 @@ class P2PEG {
 
     public function hash($str, $raw=true) {
         $str = $this->_ipad . $str;
+
+        // Look for a supported hash algo from the given list
         if(is_array($this->hash)) {
             foreach($this->hash as $h) {
                 $ret = hash($h, $str, true);
+                // If $h algo is supported, store it in $this->hash
+                // and use it for this and next cycles
                 if($ret !== false) {
                     $this->hash = $h;
                     return hash($h, $this->_opad . $ret, $raw);
                 }
             }
+
+            // There should exist at least one cryptographic hash algo...
             $this->hash = 'sha1'; // minimum required sha1
         }
+
+        // Apply the hash algo in HMAC fashion in combination with the internal secret key,
+        // this way we diminish the effects of eventual poor design of the hash algo.
         $ret = hash($this->hash, $this->_opad . hash($this->hash, $this->_ipad . $str, true), $raw);
         return $ret;
     }
@@ -997,7 +1142,5 @@ if(!function_exists('sys_get_temp_dir')) {
         return $dir;
     }
 }
-
-
 
 ?>

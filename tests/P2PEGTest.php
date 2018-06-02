@@ -213,33 +213,37 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $this->assertEmpty(($t = $intA1 & $m) ? $t ^ $m : $t, "int16() should not return more then 2 bytes: $intA1 ".dechex($intA1));
         $this->assertEmpty(($t = $intA2 & $m) ? $t ^ $m : $t, "int16() should not return more then 2 bytes: $intA2 ".dechex($intA2));
 
-        // int32()
-        $intB1 = self::$inst->int32();
-        $intB2 = self::$inst->int32();
-        $s1 = '0x'.dechex($intB1);
-        $s2 = '0x'.dechex($intB2);
-        self::log("int32()\t->", $s1. ",\tint32()\t->", $s2);
-
-        $this->assertEquals(is_int($intB1), true, 'int32() should return (int)');
-        $this->assertEquals(is_int($intB2), true, 'int32() should return (int)');
-        $this->assertNotEquals($intB2, $intB1, 'int32() should return different numbers');
+        // rand32() family
         $m = (-1<<(2<<3));
-        $this->assertNotEmpty($intB1 & $m, "int32() should not return less then 2 bytes: $intB1 ".dechex($intB1));
-        $this->assertNotEmpty($intB2 & $m, "int32() should not return less then 2 bytes: $intB2 ".dechex($intB2));
+        foreach (['int32', 'rand32', 'xorShift32', 'xorShift128', 'xorwow'] as $i32) {
+            $intB1 = self::$inst->$i32();
+            $intB2 = self::$inst->$i32();
+            $s1 = '0x'.dechex($intB1);
+            $s2 = '0x'.dechex($intB2);
+            self::log("$i32()\t->", $s1. ",\t$i32()\t->", $s2);
 
-        // rand32()
-        $intC1 = self::$inst->rand32();
-        $intC2 = self::$inst->rand32();
-        $s1 = '0x'.dechex($intC1);
-        $s2 = '0x'.dechex($intC2);
-        self::log("rand32() ->", $s1. ",\trand32() ->", $s2);
+            $this->assertEquals(is_int($intB1), true, "$i32() should return (int)");
+            $this->assertEquals(is_int($intB2), true, "$i32() should return (int)");
+            $this->assertNotEquals($intB2, $intB1, "$i32() should return different numbers");
+            $this->assertNotEmpty($intB1 & $m, "$i32() should not return less then 2 bytes: $intB1 ".dechex($intB1));
+            $this->assertNotEmpty($intB2 & $m, "$i32() should not return less then 2 bytes: $intB2 ".dechex($intB2));
+        }
 
-        $this->assertEquals(is_int($intC1), true, 'rand32() should return (int) '.gettype($intC1));
-        $this->assertEquals(is_int($intC2), true, 'rand32() should return (int) ');
-        $this->assertNotEquals($intC2, $intC1, 'rand32() should return different numbers');
-        $m = (-1<<(2<<3));
-        $this->assertNotEmpty($intC1 & $m, "rand32() should not return less then 2 bytes: $intC1 ".dechex($intC1));
-        $this->assertNotEmpty($intC2 & $m, "rand32() should not return less then 2 bytes: $intC2 ".dechex($intC2));
+        // rand64() family
+        $m = (-1<<24);
+        foreach (['rand64', 'xorShift128Plus', 'xorShift1024Star'] as $i64) {
+            $intC1 = self::$inst->$i64();
+            $intC2 = self::$inst->$i64();
+            $s1 = '0x'.dechex($intC1);
+            $s2 = '0x'.dechex($intC2);
+            self::log("$i64() ->", $s1. ",\t$i64() ->", $s2);
+
+            $this->assertEquals(is_int($intC1), true, "$i64() should return (int) ".gettype($intC1));
+            $this->assertEquals(is_int($intC2), true, "$i64() should return (int) ");
+            $this->assertNotEquals($intC2, $intC1, "$i64() should return different numbers");
+            $this->assertNotEmpty($intC1 & $m, "$i64() should not return less then 3 bytes: $intC1 ".dechex($intC1));
+            $this->assertNotEmpty($intC2 & $m, "$i64() should not return less then 3 bytes: $intC2 ".dechex($intC2));
+        }
     }
 
     // -----------------------------------------------------
