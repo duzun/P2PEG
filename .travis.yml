@@ -1,18 +1,28 @@
 language: php
 
 php:
+  - 7.0
+  - 7.1
   - 5.6
   - 5.5
   - 5.4
   - 5.3
   - 5.2
-  - 7.0
+  - nightly
   - hhvm
 
 matrix:
+    include:
+        - php: 5.2
+          dist: precise
+        - php: 5.3
+          dist: precise
     allow_failures:
         - php: hhvm
         - php: 5.2
+        - php: 5.3
+
+dist: trusty
 
 script: phpunit tests/
 
