@@ -31,13 +31,13 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.4.0
+ *  @version 0.4.1
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
 class P2PEG {
-    public static $version = '0.4.0';
+    public static $version = '0.4.1';
 
     // First start timestamp
     public static $start_ts;
@@ -274,9 +274,17 @@ class P2PEG {
         return $this->rs;
     }
 
+    protected function _init_rs($len) {
+        $count = count($this->rs);
+        while($count < $len) $this->rs[$count++] = $this->int();
+        return $this->rs;
+    }
+
     // -------------------------------------------------
     /**
      *  Pseudo-random 32bit integer numbers generator.
+     *
+     *  This algorithm is a linear congruential pseudo-random number generator.
      *
      *  This function produces same result as $this->int32(),
      *  but is much faster at generating long strings of random numbers,
@@ -286,7 +294,7 @@ class P2PEG {
      *
      *  @return  (int)random
      */
-    public function rand32() {
+    public function rand32($strict=false) {
         $rs00 = @$this->rs[0];
         $rs10 = @$this->rs[1];
 
@@ -307,14 +315,16 @@ class P2PEG {
         $this->rs[0] = $rs00;
         $this->rs[1] = $rs10;
 
+        $m = $strict ? 0xFFFFFFFF : -1;
+
         // handle overflow:
-        // in PHP at overflow (int32) -> (float)
-        return $ret | 0;
+        // in PHP at overflow (int) -> (float)
+        return $ret & $m;
     }
 
     // -------------------------------------------------
     /**
-     *  Pseudo-random 64bit integer numbers generator.
+     *  Pseudo-random 64bit integer numbers generator (xorshift family).
      *
      *  @source  http://vigna.di.unimi.it/ftp/papers/xorshiftplus.pdf
      *
@@ -373,7 +383,7 @@ class P2PEG {
      *
      * @return int32
      */
-    public function xorShift32() {
+    public function xorShift32($strict=false) {
         $x = @$this->rs[0];
 
         // Seed if necessary
@@ -381,10 +391,12 @@ class P2PEG {
             $x = $this->int32();
         }
 
+        $m = $strict ? 0xFFFFFFFF : -1;
+
         $x ^= $x << 13;
-        $x ^= $x >> 17;
+        $x ^= ($x & $m) >> 17;
         $x ^= $x << 5;
-        return $this->rs[0] = $x;
+        return $this->rs[0] = $x & $m;
     }
 
     /**
@@ -392,19 +404,21 @@ class P2PEG {
      *
      * @return int32
      */
-    public function xorShift128() {
+    public function xorShift128($strict=false) {
         count($this->rs) < 4 and $this->_init_rs32(4);
 
         $t = array_splice($this->rs, 3, 1);
         $s = $this->rs[0];
 
+        $m = $strict ? 0xFFFFFFFF : -1;
+
         $t ^= $t[0] << 11;
-        $t ^= $t >> 8;
+        $t ^= ($t&$m) >> 8;
 
         $t ^= $s;
-        $t ^= $s >> 19;
+        $t ^= ($s&$m) >> 19;
 
-        array_unshift($this->rs, $t);
+        array_unshift($this->rs, $t &= $m);
 
         return $t;
     }
@@ -418,21 +432,24 @@ class P2PEG {
      *
      * @return int32
      */
-    public function xorwow() {
-        count($this->rs) < 4 and $this->_init_rs32(5);
+    public function xorwow($strict=false) {
+        count($this->rs) < 4 and $this->_init_rs32(4);
 
         $t = array_splice($this->rs, 3, 1);
         $s = $this->rs[0];
 
-        $t ^= $t >> 2;
+        $m = $strict ? 0xFFFFFFFF : -1;
+
+        $t ^= ($t&$m) >> 2;
         $t ^= $t << 1;
 
         $t ^= $s;
         $t ^= $s << 4;
 
-        array_unshift($this->rs, $t);
+        array_unshift($this->rs, $t &= $m);
+        $this->rs[4] = (@$this->rs[4] + 0x587c5) & $m;
 
-        return $t + (@$this->rs[4] += 0x587c5);
+        return ($t + $this->rs[4]) & $m;
     }
 
     // -------------------------------------------------
@@ -443,8 +460,9 @@ class P2PEG {
      * @return int64
      */
     public function xorShift1024Star() {
-        while(count($this->rs) < 16) {
-            $this->rs[] = $this->rand64(); // should use 64 bits per state value, not 32
+        if(count($this->rs) < 16) {
+            $this->rs = [];
+            $this->_init_rs(16);
         }
         static $p = 0;
 
@@ -478,7 +496,7 @@ class P2PEG {
      * @return int64
      */
     public function xorShift128Plus() {
-        $s = $this->_init_rs32(2);
+        $s = $this->_init_rs(2);
         $x = $s[0];
         $y = $s[1];
         $s[0] = $y;
@@ -510,8 +528,8 @@ class P2PEG {
         header("Content-type: image/png");
         $im = imagecreatetruecolor($width, $height) or die("Cannot Initialize new GD image stream");
         $white = imagecolorallocate($im, 255, 255, 255);
-        // @TODO: Check if $method is safe to display to client
-        $g = $this->$meth();
+
+        $g = $this->call($meth);
         $iss = is_string($g); // string or int32
         if($iss) {
             $p = strlen($g);
@@ -524,18 +542,20 @@ class P2PEG {
         }
         $i = $bitSize;
 
+        $SIGN_BIT = -1<<(PHP_INT_SIZE<<3)-1;
+
         for($y = 0; $y < $height; $y++) {
             for($x = 0; $x < $width; $x++) {
                 if($i == 0) {
                     if($iss) {
                         if(!$p) {
-                            $g = $this->$meth();
+                            $g = $this->call($meth);
                             $p = strlen($g);
                         }
                         $r = ord(substr($g, --$p, 1));
                     }
                     else {
-                        $r = $this->$meth();
+                        $r = $this->call($meth);
                     }
                     $i = $bitSize;
                 }
@@ -543,6 +563,10 @@ class P2PEG {
                     imagesetpixel($im, $x, $y, $white);
                 }
                 $r >>= 1;
+                // sign bit should be 0 after first shift
+                if ( $r < 0 ) {
+                    $r ^= $SIGN_BIT;
+                }
                 --$i;
             }
         }
@@ -550,6 +574,21 @@ class P2PEG {
         imagedestroy($im);
     }
 
+    // -------------------------------------------------
+    public function call($meth) {
+        // @TODO: Check if $method is safe to display to client
+        if ( is_array($meth) ) {
+            $g = NULL;
+            foreach($meth as $m) {
+                $g = isset($g) ? $g ^ $this->$m() : $this->$m();
+            }
+        }
+        else {
+            $g = $this->$m();
+        }
+
+        return $g;
+    }
     // -------------------------------------------------
     public function setSecret($key) {
         $size = 64;
