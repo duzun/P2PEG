@@ -163,6 +163,13 @@ https://duzun.me/entropy
 
 ![Randomness Visualisation](https://duzun.me/entropy/img)
 
+
+## Example of ussage
+
+I've created a simple [password generator](https://duzun.me/pw) using P2PEG on both [client](https://github.com/duzun/p2peg.js) and [server](https://github.com/duzun/P2PEG).
+Each client is seeded by server, and server is seeded by each client, thus implementing P2PEG concept.
+
+
 ## TODO
 
 1. To improve the entropy unpredictability, I intend to create system where multiple machines periodically exchange entropy.
