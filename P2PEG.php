@@ -31,7 +31,7 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.5.0
+ *  @version 0.6.0
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
@@ -41,7 +41,7 @@ define('P2PEG_INT32_MASK', -1 << 32 ^ -1);
 define('P2PEG_SIGN_BIT', -1<<(PHP_INT_SIZE<<3)-1);
 
 class P2PEG {
-    public static $version = '0.5.0';
+    public static $version = '0.6.0';
 
     // First start timestamp
     public static $start_ts;
@@ -276,7 +276,7 @@ class P2PEG {
      * @param  int $int An integer
      * @return int Number of not 0 bytes of $int
      */
-    public function sizeOfInt($int) {
+    public static function sizeOfInt($int) {
         $m = -1 << ((PHP_INT_SIZE-1)<<3);
         $c = PHP_INT_SIZE;
         while(!($b = $int & $m) || $b == 0xFF and $c) {
@@ -288,13 +288,13 @@ class P2PEG {
 
 /* --- PRNGs ---------------------------------------------------------------- */
 
-    protected function _init_rs32($len) {
+    public function _init_rs32($len) {
         $count = count($this->rs);
         while($count < $len) $this->rs[$count++] = $this->int32();
         return $this->rs;
     }
 
-    protected function _init_rs($len) {
+    public function _init_rs($len) {
         $count = count($this->rs);
         while($count < $len) $this->rs[$count++] = $this->int();
         return $this->rs;
@@ -453,7 +453,11 @@ class P2PEG {
      * @return int32
      */
     public function xorwow($strict=false) {
-        count($this->rs) < 4 and $this->_init_rs32(4);
+        // $this->rs = [];
+        if ( count($this->rs) < 4 ) {
+            $this->rs = array();
+            $this->_init_rs32(4);
+        }
 
         $t = array_splice($this->rs, 3, 1);
         $s = $this->rs[0];
@@ -484,6 +488,18 @@ class P2PEG {
      * @return int64
      */
     public function splitMix64() {
+        list($z) = $this->_init_rs(1);
+
+        $this->rs[0] =
+        $z = self::add64($z, 0x9E3779B97F4A7C15);
+        $z ^= ($z >> 30) & (-1 << 34 ^ -1);
+        $z = self::mul64($z, 0xBF58476D1CE4E5B9);
+
+        $z ^= ($z >> 27) & (-1 << 37 ^ -1);
+        $z = self::mul64($z, 0x94D049BB133111EB);
+        return $z ^= ($z >> 31) & (-1 << 33 ^ -1);
+
+
         $m = P2PEG_INT32_MASK;
 
         list($x, $y) = $this->_init_rs32(2);
@@ -491,8 +507,10 @@ class P2PEG {
         $y += 0x7F4A7C15;
         $x += 0x9E3779B9 + (($y >> 32) & $m);
 
-        $this->rs[0] = $x & $m;
-        $this->rs[1] = $y & $m;
+        $x &= $m; $y &= $m;
+
+        $this->rs[0] = $x;
+        $this->rs[1] = $y;
 
         $y ^= (($x << 2) & ~3) | (($y >> 30) & 3);
         $x ^= ($x >> 30) & 3;
@@ -609,7 +627,7 @@ class P2PEG {
 
         if ( is_int($g) ) {
             $r = 0;
-            for($b = $c = $this->sizeOfInt($g) << 3; $c; $g = $this->call($method)) {
+            for($b = $c = self::sizeOfInt($g) << 3; $c; $g = $this->call($method)) {
                 for($i=$b >> 1; $i-- && $c; ) {
                     $x = $g & 3;
                     $g >>= 2;
@@ -676,54 +694,70 @@ class P2PEG {
      *  Inspired by  https://boallen.com/random-numbers.html
      *
      */
-    public function servImg($width=64, $height=64, $meth='rand32', $wordSize=NULL) {
-        $g = $this->call($meth);
+    public function servImg($width=64, $height=64, $meth='rand32', $wordSize=NULL, $bitMix=false) {
+        $totalSize = $width * $height;
 
-        if ( $g === false ) {
-            trigger_error(__METHOD__ . ': Wrong method called. '.implode(', ', (array)$meth));
-            echo __METHOD__ . ' Error';
-            return false;
+        $g = NULL;
+
+        if ( is_array($bitMix) ) {
+            $g = $bitMix;
+            $bitMix = false;
+        }
+        elseif( is_string($bitMix) ) {
+            $g = $bitMix;
+            $bitMix = true;
         }
 
-        $totalSize = $width * $height;
-        $samples = 1;
-
-        $iss = is_string($g); // string or int32
-        if($iss) {
-            $bitSize = empty($wordSize) ? 8 : $wordSize; // 1 bytes == 8 bits
-            $p = strlen($g);
-            while(strlen($g) * $bitSize < $totalSize) {
-                $g .= $this->call($meth);
-                ++$samples;
-            }
+        if ( isset($g) ) {
+            is_array($meth) or $meth = array($meth);
         }
         else {
-            if ( empty($wordSize) ) {
-                $bitSize = $this->sizeOfInt($g) << 3;
-            }
-            else {
-                $bitSize = $wordSize; // 4 bytes == 32 bits
-            }
-            $g = [$g];
-            $v = 0;
-            while(count($g) * $bitSize < $totalSize) {
-                $g[] = $r = $this->call($meth);
-                ++$samples;
-                if ( empty($wordSize) ) {
-                    $i = $this->sizeOfInt($g) << 3;
-                    if ( $i > $bitSize ) {
-                        $bitSize = $i;
-                        $v = 0;
-                    }
-                    elseif ( ++$v > 16 ) {
-                        $wordSize = $bitSize;
+            is_array($meth) and count($meth) == 1 and $meth = reset($meth);
+        }
+
+        if ( !is_array($meth) ) {
+            $m = is_int($meth) || is_numeric($meth) || strncmp($meth, '0', 1) == 0 ? $meth : [$this, $meth];
+            $g = self::callable2string($m, $totalSize, $wordSize, false);
+            if ( $g === false ) return $g;
+        }
+        else {
+            foreach($meth as $m) {
+                $c = is_int($m) || is_numeric($m) || strncmp($m, '0', 1) == 0 ? $m : [$this, $m];
+                // 0 is a special method which just enables $bitMix
+                if ( $c === 0 || $c === '0' ) {
+                    $r = '';
+                    $c = 0;
+                }
+                else {
+                    $r = self::callable2string($c, $totalSize, $wordSize, $bitMix);
+                    if ( $r === false ) return $r;
+                }
+
+                // As long as there are only arrays of items, mix at item/word level,
+                if ( !$bitMix ) {
+                    // but with first string, make everything string and mix at bit level.
+                    if ( is_string($r) ) {
+                        $bitMix = true;
+                        if ( is_array($g) ) {
+                            $g = self::arrayOfInt2String($g, $wordSize ? $wordSize >> 3 : $wordSize);
+                        }
                     }
                 }
+
+                if ( $c !== 0 ) {
+                    $g = self::mixor($g, $r, $wordSize ? $wordSize >> 3 : $wordSize);
+                }
+            }
+            unset($r); // free mem
+
+            // Because we have converted everything to char string, max wordSize is 8
+            if ( $bitMix ) {
+                $wordSize = min($wordSize, 8);
             }
         }
 
         header('X-Rand-Meth: ' . implode(', ', (array)$meth));
-        self::servStringImg($g, $bitSize, $width, $height);
+        self::servStringImg($g, $wordSize, $width, $height);
     }
 
     // -------------------------------------------------
@@ -749,7 +783,7 @@ class P2PEG {
         }
         else {
             $r = $g;
-            $bitSize = empty($wordSize) ? max(32, $this->sizeOfInt($g) << 3) : $wordSize; // 4 bytes == 32 bits
+            $bitSize = empty($wordSize) ? max(32, self::sizeOfInt($g) << 3) : $wordSize; // 4 bytes == 32 bits
         }
         $i = $bitSize;
         header('X-Rand-Meth: ' . implode(', ', (array)$meth));
@@ -802,8 +836,88 @@ class P2PEG {
     }
 
     // -------------------------------------------------
+    /**
+     * Obtain a string of words/chars for a given $callable, with the size $totalBitSize.
+     *
+     * @param  callable|number $callable A callable that produces int of string.
+     *                                   If this is a number (0xHEC, 0b10, 1052 etc),
+     *                                   then it is considered as $callable's return
+     * @param  int  $totalBitSize The desired length of the resulting string in bits
+     * @param  int  $wordSize     Number of bits to take from each word. OPTIONAL
+     * @param  boolean $returnString If true, convert the result to string of char
+     * @return string|array Depending on $returnString and $callable's output
+     */
+    public static function callable2string($callable, $totalBitSize, $wordSize=NULL, $returnString=true) {
+        if ( is_string($callable) ) {
+            if ( strncmp($callable, '0x', 2) == 0 ) {
+                $callable = hexdec(substr($callable, 2));
+            }
+            if ( strncmp($callable, '0b', 2) == 0 ) {
+                $callable = bindec(substr($callable, 2));
+            }
+        }
+        if ( is_int($callable) || is_numeric($callable) ) {
+            $g = intval($callable);
+            $bitSize = empty($wordSize) ? self::sizeOfInt($g) : $wordSize; // 1 bytes == 8 bits
+            $g = array_fill(0, ceil($totalBitSize / $bitSize), $g);
+        }
+        else {
+            $g = call_user_func($callable);
+
+            if( is_string($g) ) {
+                $bitSize = empty($wordSize) ? 8 : $wordSize; // 1 bytes == 8 bits
+                $p = strlen($g);
+                while(strlen($g) * $bitSize < $totalBitSize) {
+                    $g .= call_user_func($callable);
+                }
+            }
+            elseif( is_int($g) ) {
+                if ( empty($wordSize) ) {
+                    $bitSize = self::sizeOfInt($g) << 3;
+                }
+                else {
+                    $bitSize = $wordSize; // 4 bytes == 32 bits
+                }
+                $g = [$g];
+                $v = 0;
+                while(count($g) * $bitSize < $totalBitSize) {
+                    $g[] = $r = call_user_func($callable);
+                    if ( empty($wordSize) ) {
+                        $i = self::sizeOfInt($g) << 3;
+                        if ( $i > $bitSize ) {
+                            $bitSize = $i;
+                            $v = 0;
+                        }
+                        elseif ( ++$v > 16 ) {
+                            $wordSize = $bitSize;
+                        }
+                    }
+                }
+            }
+            else {
+                 // RNGs of this class return either string, or int
+                trigger_error(__METHOD__ . ': Wrong callable return. '.(is_string($callable) ? $callable : ''));
+                return $g;
+            }
+        }
+
+        if ( $returnString && is_array($g) ) {
+            $g = self::arrayOfInt2String($g, $bitSize >> 3);
+        }
+
+        return $g;
+    }
+
+    /**
+     * Create an image object for a string or words/chars.
+     *
+     * @param  string|array $str A string or an array of int
+     * @param  int  $wordSize   Number of bits to take from each word. OPTIONAL
+     * @param  int $width    Image width. OPTIONAL
+     * @param  int $height   Image height. OPTIONAL
+     * @return array [img, width, height, bitSize]
+     */
     public static function string2bitImg($str, $wordSize=NULL, $width=NULL, $height=NULL) {
-        $samples = 1;
 
         if ( $str === false ) {
             trigger_error(__METHOD__ . ': Wrong data supplied.');
@@ -822,7 +936,7 @@ class P2PEG {
                 $bitSize = 0;
                 $v = 0;
                 foreach($str as $g) {
-                    $i = $this->sizeOfInt($g);
+                    $i = self::sizeOfInt($g);
                     if ( $i > $bitSize ) {
                         $bitSize = $i;
                         $v = 0;
@@ -844,7 +958,6 @@ class P2PEG {
         if ( !isset($height) ) {
             $height = $width;
         }
-            // var_export(compact('p','bitSize', 'width', 'height'));die;
 
         $im = imagecreatetruecolor($width, $height) or die("Cannot Initialize new GD image stream");
         $white = imagecolorallocate($im, 255, 255, 255);
@@ -892,7 +1005,7 @@ class P2PEG {
                 }
                 if( is_int($h) ) {
                     if ( is_string($g) ) {
-                        $g = $this->strxor($g, $this->packInt($h));
+                        $g = self::strxor($g, $this->packInt($h));
                     }
                     else {
                         $g ^= $h;
@@ -906,7 +1019,7 @@ class P2PEG {
                         if ( is_int($g) ) {
                             $g = $this->packInt($g);
                         }
-                        $g = $this->strxor($g, $h);
+                        $g = self::strxor($g, $h);
                     }
                 }
                 else {
@@ -935,8 +1048,16 @@ class P2PEG {
         return $g;
     }
     // -------------------------------------------------
+    /**
+     * Set internal seecret, used for HMAC-HASH in mixing entropy.
+     *
+     * @param string|array $key a string or an array of int
+     */
     public function setSecret($key) {
         $size = 64;
+        if ( is_array($key) ) {
+            $key = self::arrayOfInt2String($key);
+        }
         $l = strlen($key);
         if($size < $l) {
             $this->_opad = $this->_ipad = NULL;
@@ -1102,10 +1223,10 @@ class P2PEG {
 
         $buf = '';
         foreach($dirs as $dir => $v) if($d = @opendir($dir)) {
-            $h = $this->strxor((($v+1)*$maxRead) . $d . $this->packInt(filemtime($dir)), $dir);
+            $h = self::strxor((($v+1)*$maxRead) . $d . $this->packInt(filemtime($dir)), $dir);
             $i = $maxRead;
             while($i-- > 0 and $f = readdir($d)) if($f != '.' && $f != '..') {
-                $h = $this->strxor($h, $f);
+                $h = self::strxor($h, $f);
             }
             $buf .= $h;
             closedir($d);
@@ -1278,6 +1399,13 @@ class P2PEG {
 
     // -------------------------------------------------
 
+    /**
+     * Calculate HMAC hash of $str using internal secret.
+     *
+     * @param  string  $str A message to hash.
+     * @param  boolean $raw If true, return raw/binary data. Hex otherwise.
+     * @return string  hash or $str
+     */
     public function hash($str, $raw=true) {
         $str = $this->_ipad . $str;
 
@@ -1350,6 +1478,12 @@ class P2PEG {
     }
 
     // -------------------------------------------------
+    /**
+     * Compact an IPv4 string into a binary 4 byte string
+     *
+     * @param  string $ip IPv4 (eg. 127.0.0.1)
+     * @return string
+     */
     public function packIP4($ip) {
         $r = '';
         $ip = explode('.', $ip);
@@ -1366,6 +1500,12 @@ class P2PEG {
         return $r;
     }
 
+    /**
+     * Compact an integer into a string.
+     *
+     * @param  int $int An integer
+     * @return string
+     */
     public function packInt($int) {
         $r = '';
         if(is_string($int)) {
@@ -1394,6 +1534,12 @@ class P2PEG {
         return $r;
     }
 
+    /**
+     * Compact a float/double intro a binary string.
+     *
+     * @param  float $float A double
+     * @return string
+     */
     public function packFloat($float) {
         $t = explode('.', $float, 2);
         return count($t) == 2
@@ -1403,18 +1549,67 @@ class P2PEG {
     }
 
     // -------------------------------------------------
+    /**
+     * Convert binary string to base64, suitable for URL.
+     *
+     * @param  string $bin
+     * @return string base64 of $bin
+     */
     public function bin2text($bin) {
         $text = strtr(rtrim(base64_encode($bin), '='), '+/', '-_');
         return $text;
     }
 
+    /**
+     * Decode a base64 string.
+     *
+     * @param  string  $text   base64 encoded string
+     * @param  boolean $strict If true, be strict about $text
+     * @return string decoded (binary) value of $text
+     */
     public function text2bin($text, $strict=false) {
         $bin = base64_decode(strtr($text, '-_', '+/'), $strict);
         return $bin;
     }
 
     // -------------------------------------------------
-    public function strxor($a,$b) {
+    /**
+     * XOR two arrays, item by item, cycling the smaller one.
+     *
+     * @param  array $a
+     * @param  array $b
+     * @return array
+     */
+    public static function arrxor($a,$b) {
+        $m = count($a);
+        $n = count($b);
+        if($m != $n) {
+            if(!$m) return $b;
+            if(!$n) return $a;
+            if( $m < $n ) {
+                $c = $a; $a = $b; $b = $c;
+                $m = count($a);
+                $n = count($b);
+            }
+        }
+        reset($b);
+        foreach($a as $k => $v) {
+            $a[$k] ^= current($b);
+            if ( !next($b) ) reset($b);
+        }
+
+        return $a;
+    }
+
+    // -------------------------------------------------
+    /**
+     * XOR two strings char by char, cycling the smaller one.
+     *
+     * @param  string $a
+     * @param  string $b
+     * @return string
+     */
+    public static function strxor($a,$b) {
         $m = strlen($a);
         $n = strlen($b);
         if($m != $n) {
@@ -1428,6 +1623,72 @@ class P2PEG {
         }
         return $a ^ $b;
     }
+
+    // -------------------------------------------------
+    /**
+     * $a ^ $b
+     * @param  string|array $a A string of an array of int
+     * @param  string|array $b A string of an array of int
+     * @param  int $intSize If $a and/or $b is an array, this is the size of integer items to consider, in bytes.
+     * @return string|array If any of $a or $b is string, the result is string.
+     */
+    public static function mixor($a, $b, $intSize) {
+        if ( !isset($a) ) return $b;
+        if ( !isset($b) ) return $a;
+
+        if ( is_string($a) ) {
+            if ( is_array($b) ) {
+                $b = self::arrayOfInt2String($b, $intSize);
+            }
+        }
+        elseif( is_string($b) ) {
+            $a = self::arrayOfInt2String($a, $intSize);
+        }
+        else {
+            return self::arrxor($a, $b);
+        }
+
+        return self::strxor($a, $b);
+    }
+
+    // -------------------------------------------------
+    /**
+     * Convert an array of integers to binary string repersentation.
+     *
+     * @param  array $arr
+     * @param  int $intSize Number of bytes of each item to consider.
+     *                      Auto-calculated from a small sample when missing.
+     * @return string binary representation of $arr
+     */
+    public static function arrayOfInt2String($arr, $intSize=NULL) {
+        if ( empty($intSize) ) {
+            $v = 0;
+            foreach($arr as $k => $i) {
+                $s = self::sizeOfInt($i);
+                if ( $s > $intSize ) {
+                    $intSize = $s;
+                    if ( $intSize == PHP_INT_SIZE ) break;
+                    $v = 0;
+                }
+                elseif ( $intSize && ++$v > 16 ) {
+                    break;
+                }
+            }
+        }
+
+        $str = '';
+        foreach($arr as $k => $i) {
+            $s = array();
+            for($p=$intSize; $p--;) {
+                $s[] = chr($i & 0xFF);
+                $i >>= 8;
+            }
+            $str .= implode('', $s);
+        }
+
+        return $str;
+    }
+
     // -------------------------------------------------
     public function env($n) {
         $r = getenv($n);
