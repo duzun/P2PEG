@@ -31,13 +31,17 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.4.2
+ *  @version 0.5.0
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
 
+define('P2PEG_INT16_MASK', -1 << 16 ^ -1);
+define('P2PEG_INT32_MASK', -1 << 32 ^ -1);
+define('P2PEG_SIGN_BIT', -1<<(PHP_INT_SIZE<<3)-1);
+
 class P2PEG {
-    public static $version = '0.4.2';
+    public static $version = '0.5.0';
 
     // First start timestamp
     public static $start_ts;
@@ -275,7 +279,7 @@ class P2PEG {
     public function sizeOfInt($int) {
         $m = -1 << ((PHP_INT_SIZE-1)<<3);
         $c = PHP_INT_SIZE;
-        while(!($int & $m) && $c) {
+        while(!($b = $int & $m) || $b == 0xFF and $c) {
             --$c;
             $m >>= 8;
         }
@@ -324,14 +328,14 @@ class P2PEG {
             $rs00 = $this->int32() ^ $this->int32();
         }
 
-        $rs00 = 0x9069 * ($rs00 & 0xFFFF) + ($rs00 >> 16);
-        $rs10 = 0x4650 * ($rs10 & 0xFFFF) + ($rs10 >> 16);
+        $rs00 = 0x9069 * ($rs00 & P2PEG_INT16_MASK) + ($rs00 >> 16);
+        $rs10 = 0x4650 * ($rs10 & P2PEG_INT16_MASK) + ($rs10 >> 16);
         $ret = ($rs00 << 16) + $rs10;  /* 32-bit result */
 
         $this->rs[0] = $rs00;
         $this->rs[1] = $rs10;
 
-        $m = $strict ? 0xFFFFFFFF : -1;
+        $m = $strict ? P2PEG_INT32_MASK : -1;
 
         // handle overflow:
         // in PHP at overflow (int) -> (float)
@@ -355,7 +359,7 @@ class P2PEG {
         $s00 = $rs[2];
         $s01 = $rs[3];
 
-        $m = 0xFFFFFFFF;
+        $m = P2PEG_INT32_MASK;
 
         // Seed if necessary
         while(!$s10 || !$s11) {
@@ -407,7 +411,7 @@ class P2PEG {
             $x = $this->int32();
         }
 
-        $m = $strict ? 0xFFFFFFFF : -1;
+        $m = $strict ? P2PEG_INT32_MASK : -1;
 
         $x ^= $x << 13;
         $x ^= ($x & $m) >> 17;
@@ -426,7 +430,7 @@ class P2PEG {
         $t = array_splice($this->rs, 3, 1);
         $s = $this->rs[0];
 
-        $m = $strict ? 0xFFFFFFFF : -1;
+        $m = $strict ? P2PEG_INT32_MASK : -1;
 
         $t ^= $t[0] << 11;
         $t ^= ($t&$m) >> 8;
@@ -454,7 +458,7 @@ class P2PEG {
         $t = array_splice($this->rs, 3, 1);
         $s = $this->rs[0];
 
-        $m = $strict ? 0xFFFFFFFF : -1;
+        $m = $strict ? P2PEG_INT32_MASK : -1;
 
         $t ^= ($t&$m) >> 2;
         $t ^= $t << 1;
@@ -470,40 +474,83 @@ class P2PEG {
 
     // -------------------------------------------------
     /**
+     * This is a fixed-increment version of Java 8's SplittableRandom generator
+     *
+     * See http://dx.doi.org/10.1145/2714064.2660195 and
+     *     http://docs.oracle.com/javase/8/docs/api/java/util/SplittableRandom.html
+     *
+     * passes BigCrush
+     *
+     * @return int64
+     */
+    public function splitMix64() {
+        $m = P2PEG_INT32_MASK;
+
+        list($x, $y) = $this->_init_rs32(2);
+
+        $y += 0x7F4A7C15;
+        $x += 0x9E3779B9 + (($y >> 32) & $m);
+
+        $this->rs[0] = $x & $m;
+        $this->rs[1] = $y & $m;
+
+        $y ^= (($x << 2) & ~3) | (($y >> 30) & 3);
+        $x ^= ($x >> 30) & 3;
+
+        $ah = 0xBF58476D;
+        $al = 0x1CE4E5B9;
+
+        $x &= $m; $y &= $m;
+
+        $x = $x * $al + $y * $ah;
+        $y = $y * $al;
+        $x += ($y >> 32) & $m;
+
+        $y ^= (($x << 5) & ~0x1F) | (($y >> 27) & 0x1F);
+        $x ^= ($x >> 27) & 0x1F;
+
+        $ah = 0x94D049BB;
+        $al = 0x133111EB;
+
+        $x &= $m; $y &= $m;
+
+        $x = $x * $al + $y * $ah;
+        $y = $y * $al;
+        $x += ($y >> 32) & $m;
+
+        $y ^= (($x << 1) & ~1) | (($y >> 31) & 1);
+        $x ^= ($x >> 31) & 1;
+
+        return ($x << 32) | ($y & $m);
+    }
+
+    // -------------------------------------------------
+    /**
      * @period 2^1024 − 1
      * passes BigCrush
      *
      * @return int64
      */
     public function xorShift1024Star() {
-        if(count($this->rs) < 16) {
-            $this->rs = [];
-            $this->_init_rs(16);
-        }
         static $p = 0;
+
+        $this->_init_rs(16);
 
         $s0 = $this->rs[$p++];
         $s1 = $this->rs[$p &= 15];
-        $s1 ^= $s1 << 31; // a
-        $s1 ^= $s1 >> 11; // b
-        $s1 ^= $s0 ^ ($s0 >> 30); // c
+
+        // There is no UInt64 in PHP, only Int64 on x64 platform, and Int32 on x86,
+        // thus, we have to make an unsigned right shift somehow.
+        // Main idea is: $x >>> $n === ($x >> $n) & (-1 << (64-$n) ^ -1)
+        $s1 ^= $s1 << 31;
+        $s1 = $s1 ^ $s0 ^ ($s1 << 31) ^ (($s1 >> 11) & (-1 << 53 ^ -1)) ^ (($s0 >> 30) & 3);
+
         $this->rs[$p] = $s1;
 
-        // return ($s1 * 0x106689D45497FDB5); // this is a double in PHP :-(
+        // In PHP, we can't just multiply int64 * int64 and get an int64. See mul64()
 
-        // In PHP, if we multiply two bit int64 numbers, we get a double.
-        // In order to multiply int64 * int64 and get the result as int64,
-        // ignoring the overflow, we have to multiply int32 numbers.
-        // a * b = (ah*2^32 + al) * (bh*2^32 + bl) = ah*bh*2^64 + (ah*bl + al*bh)*2^32 + al*bl,
-        // where ah*bh*2^64 is the overflow.
-
-        $ls = $s1 & 0xFFFFFFFF;
-        $hs = ($s1 >> 32) & 0xFFFFFFFF;
-
-        $l = 0x5497FDB5;
-        $h = 0x106689D4;
-
-        return (($hs * $l + $ls * $h) << 32) | ($ls * $l);
+        return self::mul64($s1, 0x106689D45497FDB5);
+        // return ($s1 * 0x106689D45497FDB5); // this is a float in PHP :-(
     }
 
     /**
@@ -512,14 +559,19 @@ class P2PEG {
      * @return int64
      */
     public function xorShift128Plus() {
-        $s = $this->_init_rs(2);
-        $x = $s[0];
-        $y = $s[1];
-        $s[0] = $y;
-        $x ^= $x << 23; // a
-        $s[1] = $x ^ $y ^ ($x >> 17) ^ ($y >> 26); // b, c
-        $this->rs = $s;
-        return ($s[1] + $y) | 0;
+        list($x, $y) = $this->_init_rs(2);
+
+        $this->rs[0] = $y;
+
+        // There is no UInt64 in PHP, only Int64 on x64 platform, and Int32 on x86,
+        // thus, we have to make an unsigned right shift somehow.
+        // Main idea is: $x >>> $n === ($x >> $n) & (-1 << (64-$n) ^ -1)
+        $x ^= $x << 23;
+        $x ^= $y ^ (($x >> 17) & (-1 << 47 ^ -1)) ^ (($y >> 26) & (-1 << 38 ^ -1));
+        $this->rs[1] = $x;
+
+        return self::add64($x, $y);
+        // return ($x + $y); // this is a float in PHP :-(
     }
 
     // -------------------------------------------------
@@ -611,20 +663,73 @@ class P2PEG {
      *
      *  This method helps to visually inspect a random number generator (RNG).
      *  It is not enough to know how good the RNG is,
-     *  but it can tell that the RNG is bad or something is wrong.
+     *  but if you see any pattern, the RNG is bad or something is wrong.
      *
      *  @param (int)$width of the image
      *  @param (int)$height of the image
      *  @param (str)$meth - a method of this class to generate data
-     *  @param (int)$itemSize in bits - size of each number or char generated by $meth. Defaults to 8 for string and 32 for int
+     *  @param (int)$wordSize in bits - size of each number or char generated by $meth.
+     *                        Defaults to 8 for string and min 32 for int (autodetect from first sample).
      *
      *  @note Requires the GD Library
      *
-     *  Inspired by  http://boallen.com/random-numbers.html
+     *  Inspired by  https://boallen.com/random-numbers.html
      *
      */
-    public function servImg($width=64, $height=64, $meth='rand32', $itemSize=NULL) {
+    public function servImg($width=64, $height=64, $meth='rand32', $wordSize=NULL) {
         $g = $this->call($meth);
+
+        if ( $g === false ) {
+            trigger_error(__METHOD__ . ': Wrong method called. '.implode(', ', (array)$meth));
+            echo __METHOD__ . ' Error';
+            return false;
+        }
+
+        $totalSize = $width * $height;
+        $samples = 1;
+
+        $iss = is_string($g); // string or int32
+        if($iss) {
+            $bitSize = empty($wordSize) ? 8 : $wordSize; // 1 bytes == 8 bits
+            $p = strlen($g);
+            while(strlen($g) * $bitSize < $totalSize) {
+                $g .= $this->call($meth);
+                ++$samples;
+            }
+        }
+        else {
+            if ( empty($wordSize) ) {
+                $bitSize = $this->sizeOfInt($g) << 3;
+            }
+            else {
+                $bitSize = $wordSize; // 4 bytes == 32 bits
+            }
+            $g = [$g];
+            $v = 0;
+            while(count($g) * $bitSize < $totalSize) {
+                $g[] = $r = $this->call($meth);
+                ++$samples;
+                if ( empty($wordSize) ) {
+                    $i = $this->sizeOfInt($g) << 3;
+                    if ( $i > $bitSize ) {
+                        $bitSize = $i;
+                        $v = 0;
+                    }
+                    elseif ( ++$v > 16 ) {
+                        $wordSize = $bitSize;
+                    }
+                }
+            }
+        }
+
+        header('X-Rand-Meth: ' . implode(', ', (array)$meth));
+        self::servStringImg($g, $bitSize, $width, $height);
+    }
+
+    // -------------------------------------------------
+    public function servImgDyn($width=64, $height=64, $meth='rand32', $wordSize=NULL) {
+        $g = $this->call($meth);
+        $samples = 1;
 
         if ( $g === false ) {
             trigger_error(__METHOD__ . ': Wrong method called. '.implode(', ', (array)$meth));
@@ -640,16 +745,15 @@ class P2PEG {
         if($iss) {
             $p = strlen($g);
             $r = ord(substr($g, --$p, 1));
-            $bitSize = empty($itemSize) ? 8 : $itemSize; // 1 bytes == 8 bits
+            $bitSize = empty($wordSize) ? 8 : $wordSize; // 1 bytes == 8 bits
         }
         else {
             $r = $g;
-            $bitSize = empty($itemSize) ? max(32, $this->sizeOfInt($g) << 3) : $itemSize; // 4 bytes == 32 bits
+            $bitSize = empty($wordSize) ? max(32, $this->sizeOfInt($g) << 3) : $wordSize; // 4 bytes == 32 bits
         }
         $i = $bitSize;
-        header('X-Bit-Size: ' . $bitSize);
-
-        $SIGN_BIT = -1<<(PHP_INT_SIZE<<3)-1;
+        header('X-Rand-Meth: ' . implode(', ', (array)$meth));
+        header('X-Word-Size: ' . $bitSize);
 
         for($y = 0; $y < $height; $y++) {
             for($x = 0; $x < $width; $x++) {
@@ -658,11 +762,13 @@ class P2PEG {
                         if(!$p) {
                             $g = $this->call($meth);
                             $p = strlen($g);
+                            ++$samples;
                         }
                         $r = ord(substr($g, --$p, 1));
                     }
                     else {
                         $r = $this->call($meth);
+                        ++$samples;
                     }
                     $i = $bitSize;
                 }
@@ -672,27 +778,118 @@ class P2PEG {
                 $r >>= 1;
                 // sign bit should be 0 after first shift
                 if ( $r < 0 ) {
-                    $r ^= $SIGN_BIT;
+                    $r ^= P2PEG_SIGN_BIT;
                 }
                 --$i;
             }
         }
+        header('X-Samples: ' . $samples);
         imagepng($im);
         imagedestroy($im);
     }
 
+    public static function servStringImg($str, $wordSize=NULL, $width=NULL, $height=NULL) {
+        $im = self::string2bitImg($str, $wordSize, $width, $height);
+
+        header("Content-type: image/png");
+        header('X-Word-Size: ' . $im['bitSize']);
+        header('X-Img-Size: ' . $im['width'] . 'x' . $im['height']);
+        header('X-Count: ' . (is_string($str) ? strlen($str) : count($str)));
+        imagepng($im['img']);
+        imagedestroy($im['img']);
+
+        return $im;
+    }
+
     // -------------------------------------------------
-    public function call(&$meth) {
+    public static function string2bitImg($str, $wordSize=NULL, $width=NULL, $height=NULL) {
+        $samples = 1;
+
+        if ( $str === false ) {
+            trigger_error(__METHOD__ . ': Wrong data supplied.');
+            echo __METHOD__ . 'Error';
+            return false;
+        }
+
+        $iss = is_string($str); // string or [int32]
+        if($iss) {
+            $p = strlen($str);
+            $bitSize = empty($wordSize) ? 8 : $wordSize; // 1 bytes == 8 bits
+        }
+        else {
+            $p = count($str);
+            if ( empty($wordSize) ) {
+                $bitSize = 0;
+                $v = 0;
+                foreach($str as $g) {
+                    $i = $this->sizeOfInt($g);
+                    if ( $i > $bitSize ) {
+                        $bitSize = $i;
+                        $v = 0;
+                    }
+                    else {
+                        if ( ++$v > 16 ) break;
+                    }
+                }
+                $bitSize <<= 3; // convert bytes to bits
+            }
+            else {
+                $bitSize = $wordSize;
+            }
+        }
+
+        if ( !isset($width) ) {
+            $width = round(sqrt($bitSize * $p));
+        }
+        if ( !isset($height) ) {
+            $height = $width;
+        }
+            // var_export(compact('p','bitSize', 'width', 'height'));die;
+
+        $im = imagecreatetruecolor($width, $height) or die("Cannot Initialize new GD image stream");
+        $white = imagecolorallocate($im, 255, 255, 255);
+
+        for($y = 0, $i = 0; $y < $height && $p; $y++) {
+            for($x = 0; $x < $width && $p; $x++) {
+                if($i == 0) {
+                    if($iss) {
+                        $r = ord(substr($str, --$p, 1));
+                    }
+                    else {
+                        $r = $str[--$p];
+                    }
+                    $i = $bitSize;
+                }
+                if($r & 1) {
+                    imagesetpixel($im, $x, $y, $white);
+                }
+                $r >>= 1;
+                // sign bit should be 0 after first shift
+                if ( $r < 0 ) {
+                    $r ^= P2PEG_SIGN_BIT;
+                }
+                --$i;
+            }
+        }
+
+        return array('img' => $im, 'width' => $width, 'height' => $height, 'bitSize' => $bitSize);
+    }
+
+    // -------------------------------------------------
+    public function call($meth) {
         // @TODO: Check if $method is safe to display to client
         if ( is_array($meth) ) {
             $g = NULL;
-            foreach($meth as &$m) {
-                // if ( !strncmp($m, '\\', 1) && strpos($m, '\\', 1) ) {
+            foreach($meth as $m) {
+                if ( is_int($m) || is_numeric($m) ) {
+                    $h = $m;
+                }
+                // elseif ( !strncmp($m, '\\', 1) && strpos($m, '\\', 1) ) {
                 //     $h = $m();
                 // }
-                // else {
+                else {
                     $h = $this->$m();
-                // }
+                }
                 if( is_int($h) ) {
                     if ( is_string($g) ) {
                         $g = $this->strxor($g, $this->packInt($h));
@@ -719,12 +916,16 @@ class P2PEG {
             }
         }
         else {
-            // if ( !strncmp($meth, '\\', 1) && strpos($meth, '\\', 1) ) {
+            if ( is_int($meth) || is_numeric($meth) ) {
+                $g = (int)$meth;
+            }
+            // elseif ( !strncmp($meth, '\\', 1) && strpos($meth, '\\', 1) ) {
             //     $g = $meth();
             // }
-            // else {
+            else {
                 $g = $this->$meth();
-            // }
+            }
+            // if ( is_float($g) ) $g |= 0;
             if ( !is_int($g) && !is_string($g) ) {
                 // RNGs of this class return either string, or int
                 return false;
@@ -769,7 +970,7 @@ class P2PEG {
         // Get some data from mt_rand()
         $r = array();
         $l = rand(1,8);
-        for ($i = 0; $i < $l; ++$i) $r[] = pack('S', mt_rand(0, 0xFFFF));
+        for ($i = 0; $i < $l; ++$i) $r[] = pack('S', mt_rand(0, P2PEG_INT16_MASK));
         $r = implode('', $r);
         $_entr[$r] = 'mt_rand';
 
@@ -1105,6 +1306,50 @@ class P2PEG {
 
     // Helper methods:
 
+    // -------------------------------------------------
+    /**
+     * Int64 multiplication in PHP on x64 platform.
+     *
+     * Explanation:
+     *    In PHP, when we multiply two int64 numbers with overflow, we get a float.
+     *    In order to multiply int64 * int64 and get the result as int64,
+     *    ignoring the overflow, we have to multiply int32 numbers.
+     *    a * b = (ah*2^32 + al) * (bh*2^32 + bl) = ah*bh*2^64 + (ah*bl + al*bh)*2^32 + al*bl,
+     *    where ah*bh*2^64 is the overflow.
+     *
+     * @param  int64 $a
+     * @param  int64 $b
+     * @return int64 $a * $b
+     */
+    public static function mul64($a, $b) {
+        // Split $a and $b into two int32 numbers
+
+        $la = $a & P2PEG_INT32_MASK;
+        $ha = ($a >> 32) & P2PEG_INT32_MASK;
+
+        $lb = $b & P2PEG_INT32_MASK;
+        $hb = ($b >> 32) & P2PEG_INT32_MASK;
+
+        // Multiply in 2^32
+        return ($ha * $lb + $la * $hb + ($la * $lb >> 32) << 32) | ($la * $lb) & P2PEG_INT32_MASK;
+    }
+
+    // -------------------------------------------------
+    /**
+     * Int64 addition in PHP on x64 platform.
+     *
+     * @param  int64 $a
+     * @param  int64 $b
+     * @return int64 $a + $b
+     */
+    public static function add64($x, $y) {
+        $x32 = $x & P2PEG_INT32_MASK;
+        $y32 = $y & P2PEG_INT32_MASK;
+        $xy = $x32 + $y32;
+        return ((($x >> 32) + ($y >> 32) + ($xy >> 32)) << 32) | ($xy & P2PEG_INT32_MASK);
+    }
+
+    // -------------------------------------------------
     public function packIP4($ip) {
         $r = '';
         $ip = explode('.', $ip);
