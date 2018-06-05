@@ -31,7 +31,7 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.6.1
+ *  @version 0.6.2
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
@@ -41,7 +41,7 @@ define('P2PEG_INT32_MASK', -1 << 32 ^ -1);
 define('P2PEG_SIGN_BIT', -1<<(PHP_INT_SIZE<<3)-1);
 
 class P2PEG {
-    public static $version = '0.6.1';
+    public static $version = '0.6.2';
 
     // First start timestamp
     public static $start_ts;
@@ -411,12 +411,12 @@ class P2PEG {
             $x = $this->int32();
         }
 
-        $m = $strict ? P2PEG_INT32_MASK : -1;
-
         $x ^= $x << 13;
-        $x ^= ($x & $m) >> 17;
+        $strict and $x &= P2PEG_INT32_MASK;
+        $x ^= $x >> 17;
         $x ^= $x << 5;
-        return $this->rs[0] = $x & $m;
+        $strict and $x &= P2PEG_INT32_MASK;
+        return $this->rs[0] = $x;
     }
 
     /**
@@ -430,15 +430,23 @@ class P2PEG {
         $t = array_splice($this->rs, 3, 1);
         $s = $this->rs[0];
 
-        $m = $strict ? P2PEG_INT32_MASK : -1;
-
         $t ^= $t[0] << 11;
-        $t ^= ($t&$m) >> 8;
 
-        $t ^= $s;
-        $t ^= ($s&$m) >> 19;
+        if ( $strict ) {
+            $t ^= ($t >> 8) & (-1 << 24 ^ -1);
 
-        array_unshift($this->rs, $t &= $m);
+            $t ^= $s;
+            $t ^= ($s >> 19) & (-1 << 13 ^ -1);
+
+            $t &= P2PEG_INT32_MASK;
+        }
+        else {
+            $t ^= $t >> 8;
+            $t ^= $s;
+            $t ^= $s >> 19;
+        }
+
+        array_unshift($this->rs, $t);
 
         return $t;
     }
@@ -453,9 +461,7 @@ class P2PEG {
      * @return int32
      */
     public function xorwow($strict=false) {
-        // $this->rs = [];
         if ( count($this->rs) < 4 ) {
-            $this->rs = array();
             $this->_init_rs32(4);
         }
 
@@ -464,16 +470,22 @@ class P2PEG {
 
         $m = $strict ? P2PEG_INT32_MASK : -1;
 
-        $t ^= ($t&$m) >> 2;
+        $t ^= $strict ? (($t[0]&$m) >> 2) & (-1 << 30 ^ -1) : $t[0] >> 2;
         $t ^= $t << 1;
 
         $t ^= $s;
         $t ^= $s << 4;
 
         array_unshift($this->rs, $t &= $m);
-        $this->rs[4] = (@$this->rs[4] + 0x587c5) & $m;
 
-        return ($t + $this->rs[4]) & $m;
+        if ( $strict ) {
+            $this->rs[4] = (@$this->rs[4] + 0x587c5) & $m;
+            return ($t + $this->rs[4]) & $m;
+        }
+        else {
+            $this->rs[4] = self::add64(@$this->rs[4], 0x587c5);
+            return self::add64($t, $this->rs[4]);
+        }
     }
 
     // -------------------------------------------------
@@ -586,6 +598,7 @@ class P2PEG {
         // Main idea is: $x >>> $n === ($x >> $n) & (-1 << (64-$n) ^ -1)
         $x ^= $x << 23;
         $x ^= $y ^ (($x >> 17) & (-1 << 47 ^ -1)) ^ (($y >> 26) & (-1 << 38 ^ -1));
+        // $x ^= $y ^ ($x >> 17) ^ ($y >> 26);
         $this->rs[1] = $x;
 
         return self::add64($x, $y);
@@ -853,13 +866,20 @@ class P2PEG {
             $g = array_fill(0, ceil($totalBitSize / $bitSize), $g);
         }
         else {
-            $g = call_user_func($callable);
+            if ( is_array($callable) && count($callable) > 2 ) {
+                $args = array_slice($callable, 2);
+                $callable = array_slice($callable, 0, 2);
+            }
+            else {
+                $args = [];
+            }
+            $g = call_user_func_array($callable, $args);
 
             if( is_string($g) ) {
                 $bitSize = empty($wordSize) ? 8 : $wordSize; // 1 bytes == 8 bits
                 $p = strlen($g);
                 while(strlen($g) * $bitSize < $totalBitSize) {
-                    $g .= call_user_func($callable);
+                    $g .= call_user_func_array($callable, $args);
                 }
             }
             elseif( is_int($g) ) {
@@ -872,12 +892,16 @@ class P2PEG {
                 $g = [$g];
                 $v = 0;
                 while(count($g) * $bitSize < $totalBitSize) {
-                    $g[] = $r = call_user_func($callable);
+                    $g[] = $r = call_user_func_array($callable, $args);
                     if ( empty($wordSize) ) {
-                        $i = self::sizeOfInt($g) << 3;
-                        if ( $i > $bitSize ) {
-                            $bitSize = $i;
+                        $i = self::sizeOfInt($r);
+                        $b = $i << 3;
+                        if ( $b > $bitSize ) {
+                            $bitSize = $b;
                             $v = 0;
+                            if ( $i == PHP_INT_SIZE ) {
+                                $wordSize = $bitSize;
+                            }
                         }
                         elseif ( ++$v > 16 ) {
                             $wordSize = $bitSize;
@@ -930,6 +954,7 @@ class P2PEG {
                     $i = self::sizeOfInt($g);
                     if ( $i > $bitSize ) {
                         $bitSize = $i;
+                        if ( $i == PHP_INT_SIZE ) break;
                         $v = 0;
                     }
                     else {
