@@ -111,6 +111,21 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $this->assertEquals($text, $untext2);
     }
 
+    public function testText2Int() {
+        $tests = array(
+            4321   => 4321,
+            1234   => '1234',
+            0xffAC => '0xffAC',
+            22     => '0b010110',
+        );
+        foreach($tests as $key => $value) {
+            $this->assertEquals($key, TestP2PEG4Tests::text2int($value));
+        }
+        $this->assertEquals(array_keys($tests), TestP2PEG4Tests::text2int(array_values($tests)));
+
+        $this->assertEquals(12.34, TestP2PEG4Tests::text2int(12.34), 'should not alter a float');
+    }
+
     // -----------------------------------------------------
     public function testPackIP4() {
         $o = self::$inst;
