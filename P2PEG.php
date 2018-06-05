@@ -31,7 +31,7 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.6.0
+ *  @version 0.6.1
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
@@ -41,7 +41,7 @@ define('P2PEG_INT32_MASK', -1 << 32 ^ -1);
 define('P2PEG_SIGN_BIT', -1<<(PHP_INT_SIZE<<3)-1);
 
 class P2PEG {
-    public static $version = '0.6.0';
+    public static $version = '0.6.1';
 
     // First start timestamp
     public static $start_ts;
@@ -848,16 +848,7 @@ class P2PEG {
      * @return string|array Depending on $returnString and $callable's output
      */
     public static function callable2string($callable, $totalBitSize, $wordSize=NULL, $returnString=true) {
-        if ( is_string($callable) ) {
-            if ( strncmp($callable, '0x', 2) == 0 ) {
-                $callable = hexdec(substr($callable, 2));
-            }
-            if ( strncmp($callable, '0b', 2) == 0 ) {
-                $callable = bindec(substr($callable, 2));
-            }
-        }
-        if ( is_int($callable) || is_numeric($callable) ) {
-            $g = intval($callable);
+        if ( is_int($g = self::text2int($callable)) ) {
             $bitSize = empty($wordSize) ? self::sizeOfInt($g) : $wordSize; // 1 bytes == 8 bits
             $g = array_fill(0, ceil($totalBitSize / $bitSize), $g);
         }
@@ -1086,7 +1077,7 @@ class P2PEG {
         $_entr = array();
 
         $_entr[$this->packInt(+substr(microtime(), 2, 6))] = 'microtime';
-        $_entr[$this->packInt(rand())] = 'rand';
+        $_entr[$this->packInt(rand())] = 'rand'; // In 7.1.0 rand() has been made an alias of mt_rand()
 
         // Get some data from mt_rand()
         $r = array();
@@ -1099,7 +1090,7 @@ class P2PEG {
         $r = (microtime(true)-self::$start_ts)*1000;
         $_entr[$this->packFloat($r)] = 'delta';
 
-        $_entr = implode('', array_keys($_entr));
+        $_entr = implode("\x5C", array_keys($_entr));
         return $_entr;
     }
 
@@ -1112,7 +1103,7 @@ class P2PEG {
         if(!isset($this->_clientEntropy)) {
             if(strncmp(php_sapi_name(), 'cli', 3) == 0) {
                 global $argv;
-                $_entr = implode('', $argv);
+                $_entr = implode("\x35", $argv);
                 $_entr = $_entr ? $this->hash($_entr,true) : '';
                 $this->_clientEntropy = $_entr;
                 return $_entr;
@@ -1133,7 +1124,7 @@ class P2PEG {
             if(empty($_COOKIE[session_name()]) and $r = session_id()) $_entr[$r] = 'sesid'; // If session just initialized, there is no session id in cookie
 
             // HTTP_COOKIE and REQUEST_URI might contain private data - hash/hide it at this point
-            $_entr = implode('', array_keys($_entr));
+            $_entr = implode("\x5D", array_keys($_entr));
             $_entr = array($this->hash($_entr,true)=>'HTTP');
 
             foreach(array(
@@ -1156,7 +1147,7 @@ class P2PEG {
                 $_entr[$this->packInt(+$r)] = 'rt';
             }
 
-            $_entr = implode('', array_keys($_entr));
+            $_entr = implode("\x36", array_keys($_entr));
             $this->_clientEntropy = $_entr;
         }
         return $this->_clientEntropy;
@@ -1198,7 +1189,7 @@ class P2PEG {
 
             $_entr[$this->packFloat(self::$start_ts)] = 'start';
 
-            $_entr = implode('', array_keys($_entr));
+            $_entr = implode("\x5B", array_keys($_entr));
             $this->_serverEntropy = $_entr;
         }
         return $this->_serverEntropy;
@@ -1212,7 +1203,7 @@ class P2PEG {
             $dirs = array(session_save_path(), sys_get_temp_dir(), $this->env('DOCUMENT_ROOT'));
         }
         if(!$maxRead) {
-            $maxRead = rand(100,500);
+            $maxRead = mt_rand(100,500);
         }
         if(!$dirs) return false;
 
@@ -1320,7 +1311,7 @@ class P2PEG {
 
         $_entr[$this->packFloat($delta)] = 'delta';
 
-        $_entr = implode('', array_keys($_entr));
+        $_entr = implode("\x53", array_keys($_entr));
 
         // Don't waste the chance to seed our P2PEG with some extra entropy
         $autoseed and $this->seed($_entr);
@@ -1574,6 +1565,36 @@ class P2PEG {
 
     // -------------------------------------------------
     /**
+     * Read a textual representation of an integer number.
+     *
+     * @param  string|array $text A textual representation of a number.
+     * @return int if $text is not a number, it is returned AS IS
+     */
+    public static function text2int($text) {
+        if ( is_int($text) ) return $text;
+        if ( is_string($text) ) {
+            if ( strncmp($text, '0x', 2) == 0 ) {
+                return hexdec(substr($text, 2));
+            }
+            if ( strncmp($text, '0b', 2) == 0 ) {
+                return bindec(substr($text, 2));
+            }
+            if ( is_numeric($text) ) {
+                return intval($text);
+            }
+        }
+        if ( is_array($text) ) {
+            $ret = [];
+            foreach($text as $k => $t) {
+                $ret[$k] = self::text2int($t);
+            }
+            return $ret;
+        }
+
+        return $text;
+    }
+    // -------------------------------------------------
+    /**
      * XOR two arrays, item by item, cycling the smaller one.
      *
      * @param  array $a
@@ -1764,7 +1785,7 @@ class P2PEG {
             $timeout_ms = (float)$timeout_ms / 1000;
             // If lock not obtained sleep for 0 - 64 milliseconds, to avoid collision and CPU load
             do {
-                usleep($t = rand($m, $n));
+                usleep($t = mt_rand($m, $n));
                 $l = flock($fp, $lock);
             } while ( !$l && (microtime(true)-$st) < $timeout_ms );
         }
