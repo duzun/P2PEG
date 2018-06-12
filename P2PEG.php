@@ -31,7 +31,7 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.6.2
+ *  @version 0.6.3
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
@@ -41,7 +41,7 @@ define('P2PEG_INT32_MASK', -1 << 32 ^ -1);
 define('P2PEG_SIGN_BIT', -1<<(PHP_INT_SIZE<<3)-1);
 
 class P2PEG {
-    public static $version = '0.6.2';
+    public static $version = '0.6.3';
 
     // First start timestamp
     public static $start_ts;
@@ -1207,7 +1207,18 @@ class P2PEG {
             }
             else
             // mcrypt_create_iv() is Deprecated in PHP7.1 and replaced by random_bytes()
-            if(function_exists('mcrypt_create_iv')) {
+            if(
+                function_exists('mcrypt_create_iv') && (
+                    // Windows on PHP < 5.3.7 is broken, but non-Windows is not known to be.
+                    DIRECTORY_SEPARATOR === '/' || @PHP_VERSION_ID >= 50307
+                ) && (
+                    // Prevent this code from hanging indefinitely on non-Windows;
+                    // see https://bugs.php.net/bug.php?id=69833
+                    DIRECTORY_SEPARATOR !== '/' ||
+                    !defined('PHP_VERSION_ID') || // This constant was introduced in PHP 5.2.7
+                    (PHP_VERSION_ID <= 50609 || PHP_VERSION_ID >= 50613)
+                )
+            ) {
                 $t = mcrypt_create_iv(32) and
                 $_entr[$t] = 'mcrypt_create_iv';
             }

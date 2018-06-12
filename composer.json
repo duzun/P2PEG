@@ -2,15 +2,15 @@
   "name": "duzun/p2peg",
   "type": "library",
   "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)",
-  "version": "0.6.2",
+  "version": "0.6.3",
+  "minimum-stability": "RC",
+  "prefer-stable": true,
   "author": {
     "name": "Dumitru Uzun",
     "email": "contact@duzun.me",
     "url": "http://DUzun.Me/"
   },
   "main": "P2PEG.php",
-  "minimum-stability": "RC",
-  "prefer-stable": true,
   "autoload": {
     "classmap": [
       "P2PEG.php"
