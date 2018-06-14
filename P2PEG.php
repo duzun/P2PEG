@@ -31,7 +31,7 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.6.4
+ *  @version 0.6.5
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
@@ -41,7 +41,7 @@ define('P2PEG_INT32_MASK', -1 << 32 ^ -1);
 define('P2PEG_SIGN_BIT', -1<<(PHP_INT_SIZE<<3)-1);
 
 class P2PEG {
-    public static $version = '0.6.4';
+    public static $version = '0.6.5';
 
     // First start timestamp
     public static $start_ts;
@@ -228,6 +228,72 @@ class P2PEG {
         $ret = $this->bin2text($this->str($l));
         if(isset($len) && strlen($ret) > $len) $ret = substr($ret, 0, $len);
         return $ret;
+    }
+
+    /**
+     * Generate text with a given alphabet.
+     *
+     * @param  string $alphabet Pattern or just a string
+     * @param  int    $len      Length of the generated string
+     * @return string
+     */
+    public function alpha($alphabet, $len=NULL) {
+        $alphabet = self::expand_alpha($alphabet);
+        $alpha_len = strlen($alphabet);
+        $bit_size = ceil(log($alpha_len, 2));
+        $s = $this->str(isset($len) ? ceil((float)$len * $bit_size / 8) : NULL);
+        $l = strlen($s);
+        $r = '';
+        $b = 0;
+        $c = 0;
+        $m = -1 << $bit_size ^ -1;
+        for($i=0; $i<$l; $i++) {
+            $b = ($b << 8) | ord(substr($s, $i, 1));
+            $c += 8;
+            while($c >= $bit_size) {
+                if ( isset($len) && strlen($r) >= $len ) break 2;
+                $r .= $alphabet[($b & $m) % $alpha_len];
+                $c -= $bit_size;
+                $b >>= $bit_size;
+            }
+        }
+
+        return $r;
+    }
+
+    /**
+     * Expand alphanumeric paterns
+     *
+     * @param  string $a First char of the expansion or a patern like "a-z0-9_!"
+     * @param  string $z Last char or the expansion
+     * @return string A string of all letter between $a and $z (including) or the expanded pattern of $a
+     */
+    public static function expand_alpha($a, $z=NULL) {
+        if ( !isset($z) ) {
+            $i = 1;
+            $l = strlen($a);
+            $r = '';
+            while( $i < $l and $p = strpos($a, '-', $i) and $p+1 < $l ) {
+                $z = self::expand_alpha(substr($a, $p-1), substr($a, $p+1));
+                $a = substr($a, 0, $p-1) . $z . substr($a, $p+2);
+                $l += strlen($z) - 3;
+                $i = $p + strlen($z);
+            }
+
+            return $a;
+        }
+
+        $b = ord($a);
+        $e = ord($z);
+        if ( $b > $e ) {
+            $t = $b; $b = $e; $e = $t;
+        }
+        $ret = [];
+        for(; $b <= $e; $b++) {
+            $ret[] = chr($b);
+        }
+
+        return implode('', $ret);
     }
 
 

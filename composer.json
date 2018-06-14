@@ -2,7 +2,7 @@
   "name": "duzun/p2peg",
   "type": "library",
   "description": "Peer to Peer Entropy Generator (or Random numbers generator with p2p seeding)",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "minimum-stability": "RC",
   "prefer-stable": true,
   "author": {

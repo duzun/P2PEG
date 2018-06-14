@@ -188,6 +188,21 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
 
 
     // -----------------------------------------------------
+    public function testExpandAlpha() {
+        foreach(array(
+            'Just a string' => 'Just a string',
+            'a-d-' => 'abcd-',
+            '-1a-d2' => '-1abcd2',
+            '-1d-a2-' => '-1abcd2-',
+            '0-9' => '0123456789',
+            '0-9A-E-_' => '0123456789ABCDE-_',
+            ' - ' => ' ',
+        ) as $a => $e) {
+            $this->assertEquals($e, TestP2PEG4Tests::expand_alpha($a), $a);
+        }
+    }
+
+    // -----------------------------------------------------
     public function testInt() {
         // int()
         $int1 = self::$inst->int();
@@ -272,7 +287,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $int32_max = -1 << 31 ^ -1;
         $uint32_max = (-1 << 31 ^ -1) * 2;
 
-        foreach([
+        foreach(array(
             'int' => [$int_max, NULL],
             'int16' => [$int16_max, NULL],
             'rand32' => [$int32_max, true],
@@ -280,7 +295,7 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
             'xorShift128' => [$int32_max, true],
             'xorwow' => [$int32_max, true],
             // 'RANDU' => [$int32_max, true],
-        ] as $meth => $m) {
+        ) as $meth => $m) {
             list($max, $arg) = $m;
             $a = [];
             for($i=0; $i < $n; $i++) {
@@ -314,9 +329,9 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         // self::log("str() ->", substr($s1, 0, 48). '...');
         self::log('strlen(str()) ==', $len);
 
-        $this->assertNotEquals($s1, $s2, 'str() should return different result at each call');
         $this->assertNotEmpty($s1, 'str() should never return empty result');
         $this->assertNotEmpty($s2, 'str() should never return empty result');
+        $this->assertNotEquals($s1, $s2, 'str() should return different result at each call');
         $this->assertNotEmpty(preg_match('/[^\x08-\x80]/', $s2), 'str() should have non-ASCII chars');
 
         $s1l = $len - 10; // less then $len, from begining
@@ -345,9 +360,9 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         self::log("text() ->", substr($s2, 0, 48). '...');
         self::log('strlen(text()) ==', $len);
 
-        $this->assertNotEquals($s1, $s2, 'text() should return different result at each call');
         $this->assertNotEmpty($s1, 'text() should never return empty result');
         $this->assertNotEmpty($s2, 'text() should never return empty result');
+        $this->assertNotEquals($s1, $s2, 'text() should return different result at each call');
         $this->assertNotEmpty(preg_match("/^[a-zA-Z0-9_\\/\\+\\-]+$/", $s1), 'text() should be b64 encoded');
 
         $s1l = $len - 16; // less then $len, from begining
@@ -376,9 +391,9 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         self::log("hex() ->", substr($s2, 0, 48). '...');
         self::log('strlen(hex()) ==', $len);
 
-        $this->assertNotEquals($s1, $s2, 'hex() should return different result at each call');
         $this->assertNotEmpty($s1, 'hex() should never return empty result');
         $this->assertNotEmpty($s2, 'hex() should never return empty result');
+        $this->assertNotEquals($s1, $s2, 'hex() should return different result at each call');
         $this->assertNotEmpty(preg_match("/^[a-fA-F0-9]+$/", $s1), 'hex() should have only hex digits');
 
         $s1l = $len - 14; // less then $len, from begining
@@ -398,6 +413,38 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $this->assertEquals(strlen($s4), $s4l, "hex({$s4l}) returned different length: ".strlen($s4));
     }
 
+    // -----------------------------------------------------
+    public function testAlpha() {
+        $a = 'a-u0-9V-Z_';
+        $s1  = self::$inst->alpha($a);
+        $s2  = self::$inst->alpha($a);
+        $len = strlen($s2);
+
+        self::log("alpha('$a') ->", substr($s2, 0, 48). '...');
+        self::log("strlen(alpha('$a')) ==", $len);
+
+        $this->assertNotEmpty($s1, 'alpha() should never return empty result');
+        $this->assertNotEmpty($s2, 'alpha() should never return empty result');
+        $this->assertNotEquals($s1, $s2, 'alpha() should return different result at each call');
+        $this->assertNotEmpty(preg_match("/^[$a]+$/", $s1), "alpha('$a') should have only '$a' chars");
+
+        $s1l = $len - 16; // less then $len, from begining
+        $s2l = 13;
+        $s3l = 22;
+        $s4l = 3*$len;    // buffer + seed more times
+        $s1 = self::$inst->alpha($a, $s1l);
+        $s2 = self::$inst->alpha($a, $s2l);
+        $s3 = self::$inst->alpha($a, $s3l);
+        $s4 = self::$inst->alpha($a, $s4l);
+
+        $this->assertNotEmpty($s1, "alpha('$a', {$s1l}) should never return empty result");
+        $this->assertNotEmpty($s2, "alpha('$a') should never return empty result");
+        $this->assertEquals(strlen($s1), $s1l, "alpha('$a', {$s1l}) returned different length: ".strlen($s1));
+        $this->assertEquals(strlen($s2), $s2l, "alpha('$a', {$s2l}) returned different length: ".strlen($s2));
+        $this->assertEquals(strlen($s3), $s3l, "alpha('$a', {$s3l}) returned different length: ".strlen($s3));
+        $this->assertEquals(strlen($s4), $s4l, "alpha('$a', {$s4l}) returned different length: ".strlen($s4));
+
+    }
     // -----------------------------------------------------
     public function testStateFile() {
         self::$inst->state();
