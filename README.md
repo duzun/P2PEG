@@ -1,6 +1,6 @@
 # Peer to Peer Entropy Generator
 ## or Random numbers generator with p2p seeding
-@version 0.6.5  [![Build Status](https://travis-ci.org/duzun/P2PEG.svg?branch=master)](https://travis-ci.org/duzun/P2PEG)
+@version 0.6.6  [![Build Status](https://travis-ci.org/duzun/P2PEG.svg?branch=master)](https://travis-ci.org/duzun/P2PEG)
 
 [API Documentation](https://duzun.github.io/P2PEG/docs/)
 
@@ -44,7 +44,8 @@ Get some random binary string
 $str = $P2PEG->str($length);
 ```
 
-Now you can use `$str` as cryptographic salt, seed for PRNG, password generators or anything else that requires unpredictable hight entropy data.
+Now you can use `$str` as cryptographic salt, seed for PRNG, password generators or anything else 
+that requires unpredictable hight entropy data.
 
 Get some random integer numbers:
 
@@ -52,12 +53,21 @@ Get some random integer numbers:
 $int1 = $P2PEG->int();
 $int2 = $P2PEG->int16();
 $int3 = $P2PEG->int32();
+$int4 = $P2PEG->rand($min, $max, $algo="int"); // see PHP's rand() in docs
 ```
 
 Get some random text (base64 encoded)
 
 ```php
 $text = $P2PEG->text($length);
+```
+
+Get some random text (by a given alphabet)
+
+```php
+$text = $P2PEG->alpha('a-z0-9AUOIE!', $length);
+// or
+$text = $P2PEG->text($length, 'a-z0-9AUOIE!');
 ```
 
 Get some random string hex encoded
@@ -69,7 +79,7 @@ $hex = $P2PEG->hex($length);
 Get a pseudo random 32bit integer - this method is faster then int32() for generating lots of numbers, but in turn it uses less entropy (see [RNG](http://en.wikipedia.org/wiki/Random_number_generation)).
 
 ```php
-$rand_int = $P2PEG->rand32();
+$rand_int = $P2PEG->rand32($strict=true);
 ```
 
 Get a pseudo random 64bit integer - this method is faster then int() for generating lots of numbers, but in turn it uses less entropy (see [xorshiftplus](http://vigna.di.unimi.it/ftp/papers/xorshiftplus.pdf) algorithm).
@@ -79,11 +89,26 @@ Get a pseudo random 64bit integer - this method is faster then int() for generat
 $rand_long = $P2PEG->rand64();
 ```
 
+There are some more PRNGs, randomly seeded by P2PEG:
+
+```php
+// x32
+$P2PEG->xorShift32($strict=true);
+$P2PEG->xorShift128($strict=true);
+$P2PEG->xorwow($strict=true); // default in Nvidia's CUDA toolkit
+
+// x64
+$P2PEG->xorShift1024Star();
+$P2PEG->xorShift128Plus();
+$P2PEG->splitMix64();
+```
+
 ## Advanced Usage
 
 Before using the instance of `P2PEG` class, it is a good idea to set some properties:
 
-Internal state file - optional. Tip: Keep it inaccessible to other users on system by `chmod 0600 p2peg.dat`
+Internal state file - optional. 
+Tip: Keep it inaccessible to other users on system by `chmod 0600 p2peg.dat`
 
 ```php
 $P2PEG->state_file = "/path/to/data/p2peg.dat";
@@ -105,6 +130,8 @@ Seed the PHP's RNG
 
 ```php
 mt_srand(crc32($P2PEG->seed()));
+// or
+mt_srand($P2PEG->int32());
 ```
 
 Write to `/dev/random`
@@ -129,10 +156,19 @@ Take care of what `$method` you allow for `servImg()`, cause it could display so
 The following methods are safe to display to client:
 
 ```php
-$allowMethods = array('rand32', 'int','int32','int16','str','seed','text','hex','dynEntropy','clientEntropy','networkEntropy');
+$allowMethods = array(
+    // P2PEG entropy
+    'int', 'int32', 'int16', 'str', 'seed', 'text', 'hex', 
+    // PRNGs seeded by P2PEG
+    'rand32', 'xorShift32', 'xorShift128', 'xorwow', 
+    'rand64', 'xorShift128Plus', 'xorShift1024Star', 'splitMix64', 
+    // raw data
+    'dynEntropy','clientEntropy','networkEntropy',
+);
 ```
 
-This method helps to visually inspect a random number generator (RNG). It is not enough to know how good the RNG is, but it can tell that the RNG is bad or something is wrong.
+This method helps to visually inspect a random number generator (RNG). 
+It is not enough to know how good the RNG is, but it can tell that the RNG is bad or something is wrong.
 
 Examples:
 - https://duzun.me/entropy/img/rand32
@@ -146,13 +182,15 @@ Get some entropy from outside
 $P2PEG->networkEntropy($autoseed=true);
 ```
 
-On cron event you could call
+On cron you could call
 
 ```php
 $P2PEG->expensiveEntropy($autoseed=true);
 ```
 
-This method gathers some network entropy and server entropy and can be realy slow. This is why it is a good idea to call it in background. But at the same time it is a good idea to call it from time to time, to get some more unpredictable, crtypto-safe entropy.
+This method gathers some network entropy and server entropy and can be realy slow. 
+This is why it is a good idea to call it in background. 
+But at the same time, it is a good idea to call it from time to time, to get some more unpredictable, crtypto-safe entropy.
 
  ... more comming soon
 
@@ -175,13 +213,13 @@ Each client is seeded by server, and server is seeded by each client, thus imple
 1. To improve the entropy unpredictability, I intend to create system where multiple machines periodically exchange entropy.
 Each pear gets entropy and gives entropy at the same time with a simple GET request like this one:
 
-    `curl "https://DUzun.Me/entropy/<hash(random_func().$secret)>"`
+    `curl "https://DUzun.Me/entropy/<HMAC(random_func(), $secret)>"`
 
 2. Seed `/dev/random` and update entropy count, to improve system performance
 
 3. Count the amount of entropy generated
 
-4. Test the quality of entropy witth [TestU01](http://simul.iro.umontreal.ca/testu01/tu01.html)
+4. Test the quality of entropy with [TestU01](http://simul.iro.umontreal.ca/testu01/tu01.html)
 
 5. Create a JavaScript version (in development [here](https://github.com/duzun/p2peg.js))
 

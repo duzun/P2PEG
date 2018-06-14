@@ -31,7 +31,7 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.6.5
+ *  @version 0.6.6
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
@@ -41,7 +41,7 @@ define('P2PEG_INT32_MASK', -1 << 32 ^ -1);
 define('P2PEG_SIGN_BIT', -1<<(PHP_INT_SIZE<<3)-1);
 
 class P2PEG {
-    public static $version = '0.6.5';
+    public static $version = '0.6.6';
 
     // First start timestamp
     public static $start_ts;
@@ -219,11 +219,16 @@ class P2PEG {
         ;
     }
 
-
     /**
-     *  Base64 encoded text for URL
+     * Base64 encoded text (for URL) or text based on the supplied alphabet
+     *
+     * @param  int    $len      Length of the generated text
+     * @param  string $alphabet Pattern or just a string - OPTIONAL. If missing, base64 encoded
+     * @return string
      */
-    public function text($len=NULL) {
+    public function text($len=NULL, $alphabet=NULL) {
+        if ( !empty($alphabet) ) return $this->alpha($alphabet, $len);
+
         $l = isset($len) ? ceil((float)$len * 3.0 / 4.0) : NULL;
         $ret = $this->bin2text($this->str($l));
         if(isset($len) && strlen($ret) > $len) $ret = substr($ret, 0, $len);

@@ -288,16 +288,16 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
         $uint32_max = (-1 << 31 ^ -1) * 2;
 
         foreach(array(
-            'int' => [$int_max, NULL],
-            'int16' => [$int16_max, NULL],
-            'rand32' => [$int32_max, true],
-            'xorShift32' => [$int32_max, true],
-            'xorShift128' => [$int32_max, true],
-            'xorwow' => [$int32_max, true],
-            // 'RANDU' => [$int32_max, true],
+            'int'         => array($int_max  , NULL),
+            'int16'       => array($int16_max, NULL),
+            'rand32'      => array($int32_max, true),
+            'xorShift32'  => array($int32_max, true),
+            'xorShift128' => array($int32_max, true),
+            'xorwow'      => array($int32_max, true),
+            // 'RANDU'       => array($int32_max, true),
         ) as $meth => $m) {
             list($max, $arg) = $m;
-            $a = [];
+            $a = array();
             for($i=0; $i < $n; $i++) {
                 @++$a[self::$inst->rand(1, $of, $meth, $max, $arg)];
             }
