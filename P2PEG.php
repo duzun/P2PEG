@@ -293,7 +293,7 @@ class P2PEG {
         if ( $b > $e ) {
             $t = $b; $b = $e; $e = $t;
         }
-        $ret = [];
+        $ret = array();
         for(; $b <= $e; $b++) {
             $ret[] = chr($b);
         }
@@ -820,13 +820,13 @@ class P2PEG {
         }
 
         if ( !is_array($meth) ) {
-            $m = is_int($meth) || is_numeric($meth) || strncmp($meth, '0', 1) == 0 ? $meth : [$this, $meth];
+            $m = is_int($meth) || is_numeric($meth) || strncmp($meth, '0', 1) == 0 ? $meth : array($this, $meth);
             $g = self::callable2string($m, $totalSize, $wordSize, false);
             if ( $g === false ) return $g;
         }
         else {
             foreach($meth as $m) {
-                $c = is_int($m) || is_numeric($m) || strncmp($m, '0', 1) == 0 ? $m : [$this, $m];
+                $c = is_int($m) || is_numeric($m) || strncmp($m, '0', 1) == 0 ? $m : array($this, $m);
                 // 0 is a special method which just enables $bitMix
                 if ( $c === 0 || $c === '0' ) {
                     $r = '';
@@ -962,7 +962,7 @@ class P2PEG {
                 $callable = array_slice($callable, 0, 2);
             }
             else {
-                $args = [];
+                $args = array();
             }
             $g = call_user_func_array($callable, $args);
 
@@ -980,7 +980,7 @@ class P2PEG {
                 else {
                     $bitSize = $wordSize; // 4 bytes == 32 bits
                 }
-                $g = [$g];
+                $g = array($g);
                 $v = 0;
                 while(count($g) * $bitSize < $totalBitSize) {
                     $g[] = $r = call_user_func_array($callable, $args);
@@ -1711,7 +1711,7 @@ class P2PEG {
             }
         }
         if ( is_array($text) ) {
-            $ret = [];
+            $ret = array();
             foreach($text as $k => $t) {
                 $ret[$k] = self::text2int($t);
             }
