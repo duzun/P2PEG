@@ -262,6 +262,50 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     }
 
     // -----------------------------------------------------
+    public function testRand() {
+        $n = 20000;
+        $of = 4;
+        $accepted_bias = 0.05 + 30 / $n; // > 5% bias
+
+        $int_max = PHP_INT_MAX;
+        $int16_max = -1 << 15 ^ -1;
+        $int32_max = -1 << 31 ^ -1;
+        $uint32_max = (-1 << 31 ^ -1) * 2;
+
+        foreach([
+            'int' => [$int_max, NULL],
+            'int16' => [$int16_max, NULL],
+            'rand32' => [$int32_max, true],
+            'xorShift32' => [$int32_max, true],
+            'xorShift128' => [$int32_max, true],
+            'xorwow' => [$int32_max, true],
+            // 'RANDU' => [$int32_max, true],
+        ] as $meth => $m) {
+            list($max, $arg) = $m;
+            $a = [];
+            for($i=0; $i < $n; $i++) {
+                @++$a[self::$inst->rand(1, $of, $meth, $max, $arg)];
+            }
+
+            $expected_count = $n / $of;
+            // self::log(compact('meth', 'max', 'expected_count', 'accepted_bias', 'a'));
+
+            $this->assertEquals($of, count($a), $meth . '(): should not generate numbers outside [$min..$max] interval');
+
+            $max_bias = 0;
+
+            foreach($a as $k => $v) {
+                $actual_bias = abs($v - $expected_count) / $expected_count;
+                $max_bias = max($max_bias, $actual_bias);
+                $this->assertLessThanOrEqual($accepted_bias, $actual_bias, $meth. ' bias should be small');
+            }
+
+            self::log('bias{'.$meth.'} x'.$n.' = ', round($max_bias * 100) . '%');
+        }
+
+    }
+
+    // -----------------------------------------------------
     public function testStr() {
         $s1  = self::$inst->str();
         $s2  = self::$inst->str();

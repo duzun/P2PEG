@@ -31,7 +31,7 @@
  *  3.  Count the amount of entropy generated
  *
  *
- *  @version 0.6.3
+ *  @version 0.6.4
  *  @author Dumitru Uzun (DUzun.Me)
  *
  */
@@ -41,7 +41,7 @@ define('P2PEG_INT32_MASK', -1 << 32 ^ -1);
 define('P2PEG_SIGN_BIT', -1<<(PHP_INT_SIZE<<3)-1);
 
 class P2PEG {
-    public static $version = '0.6.3';
+    public static $version = '0.6.4';
 
     // First start timestamp
     public static $start_ts;
@@ -270,6 +270,26 @@ class P2PEG {
         return $r;
     }
 
+    // -------------------------------------------------
+    /**
+     * Equivalent of PHP's rand(), only using our entropy.
+     *
+     * @param  int    $min The lowest value to return (default: 0)
+     * @param  int    $max The highest value to return (default: PHP_INT_MAX)
+     * @param  string $algo Name of a P2PEG method that returns an integer
+     * @param  int    $max_size The highest value $this->$algo() could return
+     * @return int    An integer between [$min..$max]
+     */
+    public function rand($min=0, $max=NULL, $algo="int", $max_size=PHP_INT_MAX, $arg=NULL) {
+        isset($max) or $max = $max_size;
+        $num = $this->$algo($arg);
+        // if ( abs($num) > $max_size ) {
+        //     $num &= $max_size; // not 100% correct, but in some cases might help
+        // }
+        return $min + ((1 + $num / ($max_size + 1)) * ($max - $min + 1) >> 1);
+    }
+
+    // -------------------------------------------------
     /**
      * How many bytes are required to represent this integer?
      *
@@ -314,7 +334,7 @@ class P2PEG {
      *
      *  @return  (int)random
      */
-    public function rand32($strict=false) {
+    public function rand32($strict=true) {
         $rs00 = @$this->rs[0];
         $rs10 = @$this->rs[1];
 
@@ -403,7 +423,7 @@ class P2PEG {
      *
      * @return int32
      */
-    public function xorShift32($strict=false) {
+    public function xorShift32($strict=true) {
         $x = @$this->rs[0];
 
         // Seed if necessary
@@ -424,7 +444,7 @@ class P2PEG {
      *
      * @return int32
      */
-    public function xorShift128($strict=false) {
+    public function xorShift128($strict=true) {
         count($this->rs) < 4 and $this->_init_rs32(4);
 
         $t = array_splice($this->rs, 3, 1);
@@ -460,7 +480,7 @@ class P2PEG {
      *
      * @return int32
      */
-    public function xorwow($strict=false) {
+    public function xorwow($strict=true) {
         if ( count($this->rs) < 4 ) {
             $this->_init_rs32(4);
         }

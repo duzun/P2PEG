@@ -92,7 +92,7 @@ check_phpunit_phar(function () {
     watch.createMonitor(
       _dir
       , {
-        interval: _delay >>> 1
+        interval: (_delay >>> 1) / 1e3
         , ignoreDotFiles: true
         , ignoreDirectoryPattern: /(node_modules|scripts|tools)/
         , filter: function (f, stat) { return stat.isDirectory() || path.extname(f) === '.php'; }
@@ -100,14 +100,14 @@ check_phpunit_phar(function () {
       , function (monitor) {
         // monitor.files['/home/mikeal/.zshrc'] // Stat object for my zshrc.
         monitor.on("created", function (f, stat) {
-          run_test_async()
-        })
+          run_test_async();
+        });
         monitor.on("changed", function (f, curr, prev) {
-          run_test_async()
-        })
+          run_test_async();
+        });
         monitor.on("removed", function (f, stat) {
-          run_test_async()
-        })
+          run_test_async();
+        });
         // monitor.stop(); // Stop watching
       }
     );
