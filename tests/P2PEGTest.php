@@ -6,10 +6,22 @@
  *  @TODO: Test the quality of generated data
  */
 // -----------------------------------------------------
-require_once dirname(dirname(__FILE__)) . '/P2PEG.php';
-class_exists('PHPUnit_Framework_TestCase') or class_alias('PHPUnit\\Framework\\TestCase', 'PHPUnit_Framework_TestCase');
+// We have to make some adjustments for PHPUnit_BaseClass to work with
+// PHPUnit 8.0 and still keep backward compatibility
+if (!class_exists('PHPUnit_Runner_Version')) {
+    class_alias('PHPUnit\Runner\Version', 'PHPUnit_Runner_Version');
+}
+if (version_compare(PHPUnit_Runner_Version::id(), '8.0.0') >= 0) {
+    require_once __DIR__ . '/_PU8_TestCase.php';
+} else {
+    require_once dirname(__FILE__) . '/_PU7_TestCase.php';
+}
+
 // -----------------------------------------------------
-// Surogate class for testing, to access protected attributes of P2PEG
+require_once dirname(dirname(__FILE__)) . '/P2PEG.php';
+
+// -----------------------------------------------------
+// Surrogate class for testing, to access protected attributes of P2PEG
 class TestP2PEG4Tests extends P2PEG {
     public function _t4t_getClientEntropy() { return $this->_clientEntropy; }
     public function _t4t_getServerEntropy() { return $this->_serverEntropy; }
@@ -21,7 +33,7 @@ class TestP2PEG4Tests extends P2PEG {
 }
 // -----------------------------------------------------
 
-class TestP2PEG extends PHPUnit_Framework_TestCase {
+class TestP2PEG extends PU_TestCase {
     // -----------------------------------------------------
     static public $inst;
     static public $className = 'P2PEG';
@@ -29,12 +41,12 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
     static public $log = true;
 
     // Before any test
-    static public function setUpBeforeClass() {
+    static public function mySetUpBeforeClass() {
         self::$inst = new TestP2PEG4Tests('Unit test');
     }
 
     // After all tests
-    static public function tearDownAfterClass() {
+    static public function myTearDownAfterClass() {
         $state_file = self::$inst->state_file;
 
         self::$inst = NULL;
@@ -44,13 +56,9 @@ class TestP2PEG extends PHPUnit_Framework_TestCase {
 
 
     // Before every test
-    public function setUp() {
+    public function mySetUp() {
         self::$inst->seed(__FUNCTION__);
         self::$testName = $this->getName();
-    }
-
-    // After every test
-    public function tearDown() {
     }
 
     // -----------------------------------------------------
