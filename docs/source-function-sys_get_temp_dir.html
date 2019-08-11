@@ -601,7 +601,7 @@
 </span><span id="528" class="l">    <span class="php-keyword1">public</span> <span class="php-keyword1">function</span> serverEntropy() {
 </span><span id="529" class="l">        <span class="php-keyword1">if</span>(!<span class="php-keyword1">isset</span>(<span class="php-var">$this</span>-&gt;_serverEntropy)) {
 </span><span id="530" class="l">            <span class="php-var">$_entr</span> = <span class="php-keyword1">array</span>();
-</span><span id="531" class="l">            <span class="php-var">$_entr</span>[<span class="php-keyword2">php_uname</span>(<span class="php-quote">'s'</span>)] = <span class="php-quote">'s'</span>; <span class="php-comment">// 'Linux' - less usefull, cause it never changes</span>
+</span><span id="531" class="l">            <span class="php-var">$_entr</span>[<span class="php-keyword2">php_uname</span>(<span class="php-quote">'s'</span>)] = <span class="php-quote">'s'</span>; <span class="php-comment">// 'Linux' - less useful, cause it never changes</span>
 </span><span id="532" class="l">            <span class="php-var">$_entr</span>[<span class="php-keyword2">php_uname</span>(<span class="php-quote">'r'</span>)] = <span class="php-quote">'r'</span>;
 </span><span id="533" class="l">            <span class="php-var">$_entr</span>[<span class="php-keyword2">php_uname</span>(<span class="php-quote">'v'</span>)] = <span class="php-quote">'v'</span>;
 </span><span id="534" class="l">            <span class="php-var">$_entr</span>[<span class="php-keyword2">phpversion</span>()] = <span class="php-quote">'php'</span>;

@@ -1276,7 +1276,7 @@ class P2PEG {
     public function serverEntropy() {
         if(!isset($this->_serverEntropy)) {
             $_entr = array();
-            $_entr[php_uname('s')] = 's'; // 'Linux' - less usefull, cause it never changes
+            $_entr[php_uname('s')] = 's'; // 'Linux' - less useful, cause it never changes
             $_entr[php_uname('r')] = 'r';
             $_entr[php_uname('v')] = 'v';
             $_entr[phpversion()] = 'php';
@@ -1326,7 +1326,7 @@ class P2PEG {
     public function filesystemEntropy($dirs=NULL, $maxRead=0) {
         if(!isset($dirs)) {
             if(isset($this->_filesystemEntropy)) return $this->_filesystemEntropy;
-            $_save_result = true;
+            // $_save_result = true;
             $dirs = array(session_save_path(), sys_get_temp_dir(), $this->env('DOCUMENT_ROOT'));
         }
         if(!$maxRead) {
