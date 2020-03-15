@@ -502,10 +502,10 @@ class P2PEG {
             $x = $this->int32();
         }
 
-        $x ^= $x << 13;
+        $x ^= $x << 13; // 19
         $strict and $x &= P2PEG_INT32_MASK;
-        $x ^= $x >> 17;
-        $x ^= $x << 5;
+        $x ^= $x >> 17; // 15
+        $x ^= $x << 5; // 27
         $strict and $x &= P2PEG_INT32_MASK;
         return $this->rs[0] = $x;
     }
@@ -521,7 +521,7 @@ class P2PEG {
         $t = array_splice($this->rs, 3, 1);
         $s = $this->rs[0];
 
-        $t ^= $t[0] << 11;
+        $t ^= $t[0] << 11; // 21
 
         if ( $strict ) {
             $t ^= ($t >> 8) & (-1 << 24 ^ -1);
@@ -532,9 +532,9 @@ class P2PEG {
             $t &= P2PEG_INT32_MASK;
         }
         else {
-            $t ^= $t >> 8;
+            $t ^= $t >> 8; // 24
             $t ^= $s;
-            $t ^= $s >> 19;
+            $t ^= $s >> 19; // 13
         }
 
         array_unshift($this->rs, $t);
